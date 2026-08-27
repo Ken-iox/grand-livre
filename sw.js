@@ -1,5 +1,5 @@
 // © 2026 Ken-iox — Tous droits réservés. Voir LICENSE. Toute réutilisation est interdite sans autorisation écrite.
-const CACHE = 'grand-livre-v5';
+const CACHE = 'grand-livre-v6';
 const DATA_CACHE = 'gl-data';
 const SHELL = [
   './',
@@ -7,6 +7,7 @@ const SHELL = [
   './styles.css',
   './manifest.webmanifest',
   './icons/icon.svg',
+  './icons/icon-maskable.svg',
   './js/db.js',
   './js/app.js'
 ];

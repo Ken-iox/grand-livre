@@ -20,6 +20,8 @@
   --warn-soft:#F5E9D4;
   --bad:#B3473B;
   --bad-soft:#F6E2DE;
+  --cat-1:#3D6FB4; --cat-2:#8B4B8F; --cat-3:#B5602E; --cat-4:#4F5FAD;
+  --cat-5:#B14D6B; --cat-6:#6B7A2E; --cat-7:#2E7D8C; --cat-8:#8C5A3D;
   --shadow: 0 1px 2px rgba(27,35,31,.04), 0 6px 20px -8px rgba(27,35,31,.10);
   --radius: 12px;
   --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
@@ -35,6 +37,8 @@
     --good:#74C17D; --good-soft:#1E3620;
     --warn:#E0AC5C; --warn-soft:#3C2F16;
     --bad:#E2897C; --bad-soft:#3C201C;
+    --cat-1:#7AAEE8; --cat-2:#C98BCB; --cat-3:#E8A06B; --cat-4:#9AA6E0;
+    --cat-5:#E893AA; --cat-6:#A8BC5E; --cat-7:#6FC4D4; --cat-8:#C99270;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -10px rgba(0,0,0,.5);
   }
 }
@@ -46,6 +50,8 @@
   --good:#74C17D; --good-soft:#1E3620;
   --warn:#E0AC5C; --warn-soft:#3C2F16;
   --bad:#E2897C; --bad-soft:#3C201C;
+  --cat-1:#7AAEE8; --cat-2:#C98BCB; --cat-3:#E8A06B; --cat-4:#9AA6E0;
+  --cat-5:#E893AA; --cat-6:#A8BC5E; --cat-7:#6FC4D4; --cat-8:#C99270;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px -10px rgba(0,0,0,.5);
 }
 
@@ -194,6 +200,7 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 @media (min-width:840px){ .cat-list{ grid-template-columns:1fr 1fr; } }
 .cat-row{ display:grid; grid-template-columns:140px 1fr 132px 20px; align-items:center; gap:8px; }
 .cat-name{ font-size:12px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:none; border:none; text-align:left; padding:0; cursor:pointer; color:var(--ink); }
+.cat-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; flex-shrink:0; }
 .cat-bar-wrap{ display:flex; flex-direction:column; gap:4px; }
 .cat-nums{ display:flex; justify-content:flex-end; gap:10px; font-family:var(--font-mono); font-size:11px; }
 .cat-nums .budget{ color:var(--ink-faint); }
@@ -400,6 +407,9 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 .toast{ pointer-events:auto; display:flex; align-items:center; gap:12px; background:var(--ink); color:var(--bg); border-radius:9px; padding:10px 14px; font-size:12.5px; box-shadow:var(--shadow); animation:toast-in .18s ease; }
 :root[data-theme="dark"] .toast, :root:not([data-theme="light"]) .toast{ background:var(--surface-2); color:var(--ink); border:1px solid var(--line-strong); }
 @keyframes toast-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+.toast.celebrate{ background:var(--good-soft); color:var(--good); border:1px solid var(--good); animation:toast-celebrate .4s cubic-bezier(.34,1.56,.64,1); }
+@keyframes toast-celebrate{ 0%{ opacity:0; transform:translateY(6px) scale(.9); } 60%{ transform:translateY(0) scale(1.04); } 100%{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .toast.celebrate{ animation:none; } }
 .toast button{ background:none; border:none; color:var(--accent); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; }
 
 /* ============ CHIPS RAPIDES ============ */
@@ -459,6 +469,7 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 
 /* ============ COACH — ton humain ============ */
 .coach-line{ font-size:13px; color:var(--ink); background:var(--accent-soft); border:1px solid var(--accent-soft-line); border-radius:9px; padding:9px 13px; margin-bottom:14px; }
+.streak-badge{ font-size:11.5px; font-weight:600; color:var(--warn); background:var(--warn-soft); border-radius:9px; padding:7px 12px; margin-top:10px; display:inline-block; }
 
 /* ============ CIBLES TACTILES — mobile ============ */
 @media (max-width:860px){

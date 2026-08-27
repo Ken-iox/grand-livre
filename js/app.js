@@ -108,7 +108,7 @@ function showToast(message, opts){
   opts = opts || {};
   var stack = document.getElementById('toast-stack');
   var el = document.createElement('div');
-  el.className = 'toast';
+  el.className = 'toast' + (opts.celebrate ? ' celebrate' : '');
   el.innerHTML = '<span>'+message+'</span>' + (opts.actionLabel ? '<button type="button">'+opts.actionLabel+'</button>' : '');
   stack.appendChild(el);
   var timer = setTimeout(remove, opts.duration || 5000);
@@ -117,6 +117,9 @@ function showToast(message, opts){
     el.querySelector('button').addEventListener('click', function(){ remove(); if(opts.onAction) opts.onAction(); });
   }
   return remove;
+}
+function celebrateGoal(name){
+  showToast('🎉 Objectif atteint : '+name+' !', {celebrate:true, duration:6000});
 }
 function deleteWithUndo(store, obj, arrayRef, label, afterFn){
   var idx = arrayRef.indexOf(obj);
@@ -306,7 +309,33 @@ function rolloverCarry(mk){
   return Math.max(0, variableBudgetTotal() - prevSpent);
 }
 
+function variableSpendStreak(){
+  var mk = CURRENT_MONTH;
+  var budget = variableBudgetTotal() + rolloverCarry(mk);
+  if(budget <= 0) return 0;
+  var days = daysInMonth(mk);
+  var today = new Date().getDate();
+  var spendByDay = {};
+  txForMonth(mk).filter(function(t){ return t.type==='variable'; }).forEach(function(t){
+    var d = parseInt(t.date.slice(8,10),10);
+    spendByDay[d] = (spendByDay[d]||0) + t.amount;
+  });
+  var cum = 0, streak = 0;
+  for(var d=1; d<=today; d++){
+    cum += spendByDay[d] || 0;
+    if(cum <= budget/days*d) streak++; else streak = 0;
+  }
+  return streak;
+}
+
 function categoryByName(name){ return S.categories.find(function(c){ return c.name === name; }); }
+
+var CATEGORY_PALETTE = ['cat-1','cat-2','cat-3','cat-4','cat-5','cat-6','cat-7','cat-8'];
+function hashStr(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
+function categoryColor(name){
+  if(!name) return cssVar('ink-faint');
+  return cssVar(CATEGORY_PALETTE[hashStr(name) % CATEGORY_PALETTE.length]);
+}
 
 /* ============ MONTH SELECTS ============ */
 function allKnownMonths(){
@@ -348,6 +377,7 @@ function renderDashboard(){
   var resteVar = effectiveVarBudget - d.variableSpent;
   var isCurrent = selectedMonth === CURRENT_MONTH;
   var today = new Date();
+  var streak = isCurrent ? variableSpendStreak() : 0;
 
   var seriesRange = last6Months(selectedMonth);
   var revSeries = seriesRange.map(function(m){ var a = monthAggregate(m); return a ? a.revenus : 0; });
@@ -404,6 +434,7 @@ function renderDashboard(){
       diagChipHtml('Dép. variables', pct(d.variablePct), d.variable) +
       diagChipHtml('Budget variable', eur(d.variableSpent)+' / '+eur(effectiveVarBudget), resteVar>=0?{cls:'good',label:'Sous budget'}:{cls:'bad',label:'Dépassé'}) +
     '</div>'+
+    (isCurrent && streak >= 2 ? '<div class="streak-badge">🔥 '+streak+' jours sous ton budget variable quotidien</div>' : '') +
     '<div class="grid cols-3" style="margin-top:18px;">'+
       '<div class="card"><div class="section-title" style="margin:0 0 8px;"><span>Charges fixes — '+monthLabel(selectedMonth)+'</span><span class="charge-counter">'+paidCount+'/'+S.fixedCharges.length+' prélevées</span></div>'+
       '<div class="charge-list" id="dash-charge-list">'+(chargesHtml || '<div style="font-size:12px;color:var(--ink-faint);">Aucune charge fixe. Ajoute-les dans Paramètres.</div>')+'</div></div>'+
@@ -506,14 +537,38 @@ function playNumberAnimations(root){
 }
 
 /* ============ TON HUMAIN — résumé du mois ============ */
+function dayOfYearSeed(){
+  var now = new Date();
+  var start = new Date(now.getFullYear(), 0, 0);
+  return Math.floor((now - start) / 86400000);
+}
+function pickVariant(arr){ return arr[dayOfYearSeed() % arr.length]; }
 function humanSummary(d){
-  if(d.agg.solde < 0) return 'Ce mois est dans le rouge — regarde du côté des dépenses variables.';
-  if(d.margin.cls === 'bad') return 'Ce mois est dans le rouge — regarde du côté des dépenses variables.';
-  if(d.margin.cls === 'warn') return 'Ça passe, mais la marge est serrée jusqu’à la fin du mois.';
-  if(d.savings.cls === 'good' && d.variable.cls === 'good') return 'Bien joué, tu es dans les clous ce mois-ci 👍';
-  if(d.fixed.cls === 'bad') return 'Les charges fixes prennent une grosse part des revenus ce mois-ci.';
-  if(d.variable.cls === 'bad') return 'Les dépenses variables débordent un peu — rien d’alarmant, à surveiller.';
-  return 'Ça se passe plutôt bien ce mois-ci.';
+  if(d.agg.solde < 0 || d.margin.cls === 'bad') return pickVariant([
+    'Ce mois est dans le rouge — regarde du côté des dépenses variables.',
+    'Le solde est négatif ce mois-ci — un point sur les dépenses variables s’impose.'
+  ]);
+  if(d.margin.cls === 'warn') return pickVariant([
+    'Ça passe, mais la marge est serrée jusqu’à la fin du mois.',
+    'Pas de danger immédiat, mais peu de marge d’ici la fin du mois.'
+  ]);
+  if(d.savings.cls === 'good' && d.variable.cls === 'good') return pickVariant([
+    'Bien joué, tu es dans les clous ce mois-ci 👍',
+    'Mois maîtrisé de bout en bout — continue comme ça.',
+    'Épargne et dépenses variables au vert, rien à redire.'
+  ]);
+  if(d.fixed.cls === 'bad') return pickVariant([
+    'Les charges fixes prennent une grosse part des revenus ce mois-ci.',
+    'Poids des charges fixes élevé ce mois-ci — à garder en tête pour les prochains arbitrages.'
+  ]);
+  if(d.variable.cls === 'bad') return pickVariant([
+    'Les dépenses variables débordent un peu — rien d’alarmant, à surveiller.',
+    'Petit dépassement côté dépenses variables — à garder à l’œil sans stresser.'
+  ]);
+  return pickVariant([
+    'Ça se passe plutôt bien ce mois-ci.',
+    'Rien à signaler, le mois suit son cours normalement.'
+  ]);
 }
 
 // repaint sparklines after every render pass via MutationObserver-free simple hook
@@ -754,7 +809,7 @@ function renderSaisie(){
       else if(tx.type==='epargne'){ icon='🐷'; name=tx.category; }
       else { icon = cat ? cat.icon : '✳️'; name = cat ? cat.name : tx.category; }
       return '<div class="tx-row" data-tx="'+tx.id+'">'+
-        '<div class="tx-row-icon">'+esc(icon)+'</div>'+
+        '<div class="tx-row-icon" style="background:'+categoryColor(name)+'22;">'+esc(icon)+'</div>'+
         '<div class="tx-row-body"><div class="tx-row-cat">'+esc(name)+'</div><div class="tx-row-date">'+fmtDateFR(tx.date)+'</div></div>'+
         '<div class="tx-row-amt '+tx.type+'">'+(tx.type==='revenu'?'+':'−')+eur(tx.amount)+'</div>'+
         '<button class="icon-btn" data-del="'+tx.id+'" title="Supprimer">×</button>'+
@@ -1120,13 +1175,14 @@ function renderBudgets(){
   else rows.sort(function(a,b){ return a.ecart-b.ecart; });
   document.getElementById('cat-list').innerHTML = rows.map(function(r){
     var color = r.pct>85 ? 'var(--bad)' : (r.pct>55 ? 'var(--warn)' : 'var(--good)');
+    var catColor = categoryColor(r.name);
     return '<div class="cat-row">'+
-      '<button class="cat-name" data-edit-cat="'+r.id+'" title="Modifier">'+esc(r.icon)+' '+esc(r.name)+'</button>'+
+      '<button class="cat-name" data-edit-cat="'+r.id+'" title="Modifier"><span class="cat-dot" style="background:'+catColor+';"></span>'+esc(r.icon)+' '+esc(r.name)+'</button>'+
       '<div class="cat-bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:'+r.pct+'%; background:'+color+';"></div></div></div>'+
       '<div class="cat-nums"><span class="budget tnum">'+eur(r.annual)+'</span><span class="ecart tnum" style="color:'+color+';">'+eur(r.ecart)+'</span></div>'+
       '<button class="icon-btn" data-del-cat="'+r.id+'" title="Supprimer">×</button>'+
     '</div>';
-  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">Aucune catégorie. Clique "+ Catégorie" pour commencer.</div>';
+  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">▤ Aucune catégorie. Clique "+ Catégorie" pour commencer.</div>';
   document.querySelectorAll('[data-edit-cat]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var c = S.categories.find(function(x){ return x.id===parseInt(btn.dataset.editCat,10); });
@@ -1241,7 +1297,7 @@ function renderPatrimoine(){
       '<div class="loan-stat"><span class="l">Capital restant dû</span><span class="v tnum">'+eur(S.loan.remaining)+'</span></div>'+
       '<div class="loan-stat"><span class="l">Échéances restantes</span><span class="v tnum">'+monthsLeft+' mois</span></div>'+
       '<div class="loan-bar"><div class="goal-top"><span>'+pct+' % remboursé</span></div><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%; background:var(--accent);"></div></div></div>';
-  } else loanHtml = '<div style="font-size:12px;color:var(--ink-faint);">Aucun prêt renseigné. Clique "Modifier" pour en ajouter un.</div>';
+  } else loanHtml = '<div style="font-size:12px;color:var(--ink-faint);">🏦 Aucun prêt renseigné. Clique "Modifier" pour en ajouter un.</div>';
   document.getElementById('loan-card').innerHTML = loanHtml;
 
   document.getElementById('patri-cards').innerHTML = S.patrimoineAccounts.map(function(a){
@@ -1256,14 +1312,19 @@ function renderPatrimoine(){
       (a.goal>0 ? '<div class="goal-row"><div class="goal-top" data-edit-goal="'+a.id+'" style="cursor:pointer;"><span>Objectif ✎</span><span class="tnum">'+eur(bal)+' / '+eur(a.goal)+'</span></div><div class="bar-track"><div class="bar-fill" style="width:'+goalPct+'%; background:var(--accent);"></div></div></div>'
         : '<div class="goal-row"><div class="goal-top" data-edit-goal="'+a.id+'" style="cursor:pointer;"><span>+ Définir un objectif</span></div></div>') +
     '</div>';
-  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">Aucun compte. Clique "+ Compte" pour en ajouter un.</div>';
+  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">🎯 Aucun compte. Clique "+ Compte" pour en ajouter un.</div>';
   document.querySelectorAll('[data-update-bal]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var a = S.patrimoineAccounts.find(function(x){ return x.id===parseInt(btn.dataset.updateBal,10); });
       openModal({title:'Nouveau solde — '+a.name, fields:[{key:'v', label:monthLabel(CURRENT_MONTH)+' (€)', type:'number', value:accountLatest(a)}]}).then(function(r){
         if(!r || isNaN(r.v)) return;
+        var beforePct = a.goal>0 ? (accountLatest(a)/a.goal*100) : 0;
         a.snapshots = a.snapshots || {}; a.snapshots[CURRENT_MONTH] = r.v;
-        db.put('patrimoineAccounts', a).then(renderPatrimoine);
+        var afterPct = a.goal>0 ? (r.v/a.goal*100) : 0;
+        db.put('patrimoineAccounts', a).then(function(){
+          renderPatrimoine();
+          if(beforePct < 100 && afterPct >= 100) celebrateGoal(a.name);
+        });
       });
     });
   });
@@ -1287,15 +1348,20 @@ function renderPatrimoine(){
       '<div class="fund-acc tnum">'+eur(f.accumulated)+' / '+eur(f.annualTarget)+'</div>'+
       '<button class="icon-btn" data-del-fund="'+f.id+'" title="Supprimer">×</button>'+
     '</div>';
-  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">Aucun fonds de côté pour l’instant.</div>';
+  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">💰 Aucun fonds de côté pour l’instant.</div>';
   document.querySelectorAll('[data-fund]').forEach(function(row){
     row.addEventListener('click', function(e){
       if(e.target.closest('[data-del-fund]')) return;
       var f = S.sinkingFunds.find(function(x){ return x.id===parseInt(row.dataset.fund,10); });
       openModal({title:f.name, fields:[{key:'v', label:'Montant accumulé (€)', type:'number', value:f.accumulated}]}).then(function(r){
         if(!r || isNaN(r.v)) return;
+        var beforePct = f.annualTarget>0 ? (f.accumulated/f.annualTarget*100) : 0;
         f.accumulated = r.v;
-        db.put('sinkingFunds', f).then(renderPatrimoine);
+        var afterPct = f.annualTarget>0 ? (r.v/f.annualTarget*100) : 0;
+        db.put('sinkingFunds', f).then(function(){
+          renderPatrimoine();
+          if(beforePct < 100 && afterPct >= 100) celebrateGoal(f.name);
+        });
       });
     });
   });
@@ -1334,6 +1400,7 @@ function renderAnnuel(){
     var revD = smoothPath(revPts), depD = smoothPath(depPts);
     var lastRev = revPts[revPts.length-1], lastDep = depPts[depPts.length-1];
     var areaDep = depD+' L'+lastDep[0].toFixed(1)+','+(h-padB)+' L'+depPts[0][0].toFixed(1)+','+(h-padB)+' Z';
+    var areaRev = revD+' L'+lastRev[0].toFixed(1)+','+(h-padB)+' L'+revPts[0][0].toFixed(1)+','+(h-padB)+' Z';
     var gridLines = [0,0.5,1].map(function(f){ var y=h-padB-f*(h-padT-padB); return '<line x1="'+padL+'" y1="'+y+'" x2="'+(w-padR)+'" y2="'+y+'" stroke="var(--line)" stroke-width="1"/>'; }).join('');
     var labels = months.map(function(mk,i){
       var pp=pt(i,0);
@@ -1341,6 +1408,7 @@ function renderAnnuel(){
       return '<text x="'+pp[0].toFixed(1)+'" y="'+(h-4)+'" font-size="9.5" fill="var(--ink-faint)" text-anchor="'+anchor+'">'+MONTH_NAMES[i].slice(0,4)+'.</text>';
     }).join('');
     svg = '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+gridLines+
+      '<path d="'+areaRev+'" fill="'+revColor+'" opacity="0.08" stroke="none"/>'+
       '<path d="'+areaDep+'" fill="'+depColor+'" opacity="0.08" stroke="none"/>'+
       '<path d="'+revD+'" fill="none" stroke="'+revColor+'" stroke-width="2"/>'+
       '<path d="'+depD+'" fill="none" stroke="'+depColor+'" stroke-width="2.2"/>'+
