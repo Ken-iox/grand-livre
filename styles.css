@@ -387,3 +387,33 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 .suggest-card{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--accent-soft-line); background:var(--accent-soft); border-radius:9px; margin-bottom:8px; font-size:12.5px; }
 .suggest-card .body{ flex:1; }
 .suggest-card button{ flex-shrink:0; }
+
+/* ============ FAB ============ */
+.fab{
+  position:fixed; right:18px; bottom:24px; z-index:25; width:56px; height:56px; border-radius:50%;
+  background:var(--accent); color:var(--accent-ink); border:none; font-size:28px; font-weight:300; line-height:1;
+  box-shadow:0 6px 20px -4px rgba(0,0,0,.35); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:transform .1s ease;
+}
+.fab:active{ transform:scale(0.92); }
+.fab:focus-visible{ outline:2px solid var(--ink); outline-offset:3px; }
+.fab.hidden{ display:none; }
+@media (max-width:860px){ .fab{ bottom:calc(74px + env(safe-area-inset-bottom)); } }
+
+/* ============ COACH — ton humain ============ */
+.coach-line{ font-size:13px; color:var(--ink); background:var(--accent-soft); border:1px solid var(--accent-soft-line); border-radius:9px; padding:9px 13px; margin-bottom:14px; }
+
+/* ============ CIBLES TACTILES — mobile ============ */
+@media (max-width:860px){
+  .icon-btn{ min-width:38px; min-height:38px; font-size:16px; }
+  .btn-primary, .btn-secondary, .btn-danger{ min-height:46px; padding:10px 16px; }
+  .quick-chip{ min-height:38px; padding:8px 14px; font-size:13px; }
+  .switch{ width:42px; height:26px; }
+  .switch .thumb{ width:20px; height:20px; }
+  .switch input:checked ~ .track .thumb{ transform:translateX(18px); }
+  .charge-row input[type=checkbox]{ width:22px; height:22px; }
+  .sheet-item{ min-height:50px; }
+  .tabbar .nav-btn{ min-height:50px; }
+  .cat-name{ min-height:38px; display:flex; align-items:center; }
+  .tool-btn{ min-height:42px; }
+}

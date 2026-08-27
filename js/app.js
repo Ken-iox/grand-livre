@@ -126,7 +126,7 @@ function deleteWithUndo(store, obj, arrayRef, label, afterFn){
 seedIfEmpty().then(loadAll).then(function(){
   selectedMonth = CURRENT_MONTH;
   wireNav(); wireTheme(); wireSheet();
-  wireSaisie(); wireSaisieTools(); wireCalendrier(); wireBudgets(); wirePatrimoine(); wireParametres();
+  wireSaisie(); wireSaisieTools(); wireCalendrier(); wireBudgets(); wirePatrimoine(); wireParametres(); wireFab();
   renderAll();
 
   var action = new URLSearchParams(window.location.search).get('action');
@@ -183,6 +183,14 @@ function setView(name){
   document.querySelectorAll('.nav-btn, .sheet-item').forEach(function(b){ b.classList.toggle('active', b.dataset.view === name); });
   window.scrollTo({top:0});
   closeSheet();
+  var fab = document.getElementById('fab-add');
+  if(fab) fab.classList.toggle('hidden', name === 'saisie');
+}
+function wireFab(){
+  document.getElementById('fab-add').addEventListener('click', function(){
+    setView('saisie');
+    setTimeout(function(){ document.getElementById('qa-amt').focus(); }, 120);
+  });
 }
 var sheetEl, overlayEl;
 function wireSheet(){
@@ -246,9 +254,9 @@ function diagnostics(mk){
     if(v < hi) return {cls:'warn', label:labels[1]};
     return {cls:'good', label:labels[2]};
   }
-  var savings = tier(savingsPct, th.savingsLow, th.savingsGood, ['Insuffisant','Correct','Excellent']);
+  var savings = tier(savingsPct, th.savingsLow, th.savingsGood, ['À renforcer','Correct','Excellent']);
   var fixedD = fixedPct >= th.fixedMax ? {cls:'bad', label:'Élevées'} : (fixedPct >= th.fixedGood ? {cls:'warn', label:'Correct'} : {cls:'good', label:'Maîtrisées'});
-  var variableD = variablePct >= th.variableMax ? {cls:'bad', label:'Excessives'} : (variablePct >= th.variableGood ? {cls:'warn', label:'Correct'} : {cls:'good', label:'Maîtrisées'});
+  var variableD = variablePct >= th.variableMax ? {cls:'bad', label:'À surveiller'} : (variablePct >= th.variableGood ? {cls:'warn', label:'Correct'} : {cls:'good', label:'Maîtrisées'});
   var margin = agg.solde < 0 ? {cls:'bad', label:'Déficit'} : (agg.solde < th.comfortMargin ? {cls:'warn', label:'Serré'} : {cls:'good', label:'Confortable'});
   return {agg:agg, savingsPct:savingsPct, fixedPct:fixedPct, variablePct:variablePct, savings:savings, fixed:fixedD, variable:variableD, margin:margin, variableSpent:variableSpent};
 }
@@ -327,8 +335,9 @@ function renderDashboard(){
   var alertsHtml = alerts.length ? alerts.map(alertRowHtml).join('') : '<div style="font-size:11.5px; color:var(--ink-faint);">Rien à signaler ✓</div>';
 
   pop.innerHTML =
+    '<div class="coach-line">'+humanSummary(d)+'</div>'+
     '<div class="card banner">'+
-      '<div class="big stat"><div class="stat-label">Reste à vivre / jour</div><div class="stat-value tnum">'+eur(perDay)+'</div></div>'+
+      '<div class="big stat"><div class="stat-label">Reste à vivre / jour</div><div class="stat-value tnum">'+animatedEur('reste-a-vivre', perDay)+'</div></div>'+
       '<div class="progress-block"><div class="progress-top"><span>Jour <b class="tnum">'+(isCurrent?today.getDate():daysInMonth(selectedMonth))+'</b> / '+daysInMonth(selectedMonth)+'</span><span><b class="tnum">'+eur(resteVar)+'</b> disponibles sur '+remainingDays+' jour'+(remainingDays>1?'s':'')+'</span></div>'+
       '<div class="bar-track"><div class="bar-fill" style="width:'+Math.max(0,Math.min(100, (daysInMonth(selectedMonth)-remainingDays)/daysInMonth(selectedMonth)*100))+'%; background:var(--accent);"></div></div></div>'+
     '</div>'+
@@ -377,7 +386,7 @@ function last6Months(endMk){
 function statCardHtml(label, value, series, colorVar, badge){
   return '<div class="card stat">'+
     '<div class="stat-label">'+label+'</div>'+
-    '<div class="stat-value tnum">'+eur(value)+'</div>'+
+    '<div class="stat-value tnum">'+animatedEur('stat-'+label, value)+'</div>'+
     (badge ? '<span class="stat-delta '+(colorVar==='good'?'good':(colorVar==='warn'?'warn':'bad'))+'" style="position:absolute; top:12px; right:13px;">'+badge+'</span>' : '')+
     '<div class="stat-spark" data-series="'+series.join(',')+'" data-color="'+colorVar+'"></div>'+
   '</div>';
@@ -416,9 +425,50 @@ function smoothPath(pts){
   }
   return d;
 }
+/* ============ ANIMATION DES CHIFFRES ============ */
+var _numCache = {};
+var _reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function animatedEur(key, value){
+  return '<span data-anim-key="'+key+'" data-anim-to="'+value+'">'+eur(_numCache[key] != null ? _numCache[key] : value)+'</span>';
+}
+function playNumberAnimations(root){
+  (root||document).querySelectorAll('[data-anim-key]').forEach(function(el){
+    var key = el.dataset.animKey;
+    var to = parseFloat(el.dataset.animTo);
+    var from = _numCache[key] != null ? _numCache[key] : to;
+    _numCache[key] = to;
+    if(_reduceMotion || Math.abs(to-from) < 0.005){ el.textContent = eur(to); return; }
+    var start = null, duration = 500;
+    function step(ts){
+      if(!start) start = ts;
+      var p = Math.min(1, (ts-start)/duration);
+      var eased = 1-Math.pow(1-p, 3);
+      el.textContent = eur(from + (to-from)*eased);
+      if(p < 1) requestAnimationFrame(step); else el.textContent = eur(to);
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+/* ============ TON HUMAIN — résumé du mois ============ */
+function humanSummary(d){
+  if(d.agg.solde < 0) return 'Ce mois est dans le rouge — regarde du côté des dépenses variables.';
+  if(d.margin.cls === 'bad') return 'Ce mois est dans le rouge — regarde du côté des dépenses variables.';
+  if(d.margin.cls === 'warn') return 'Ça passe, mais la marge est serrée jusqu’à la fin du mois.';
+  if(d.savings.cls === 'good' && d.variable.cls === 'good') return 'Bien joué, tu es dans les clous ce mois-ci 👍';
+  if(d.fixed.cls === 'bad') return 'Les charges fixes prennent une grosse part des revenus ce mois-ci.';
+  if(d.variable.cls === 'bad') return 'Les dépenses variables débordent un peu — rien d’alarmant, à surveiller.';
+  return 'Ça se passe plutôt bien ce mois-ci.';
+}
+
 // repaint sparklines after every render pass via MutationObserver-free simple hook
 var _origRenderDashboard = renderDashboard;
-renderDashboard = function(){ _origRenderDashboard(); paintSparklines(document.getElementById('dashboard-populated')); };
+renderDashboard = function(){
+  _origRenderDashboard();
+  var pop = document.getElementById('dashboard-populated');
+  paintSparklines(pop);
+  playNumberAnimations(pop);
+};
 
 /* ============ ALERTES ============ */
 function computeAlerts(mk){
@@ -1051,7 +1101,7 @@ function accountLatest(a){
 }
 function renderPatrimoine(){
   var total = S.patrimoineAccounts.reduce(function(sum,a){ return sum+accountLatest(a); }, 0);
-  document.getElementById('patri-total').textContent = eur(total);
+  document.getElementById('patri-total').outerHTML = '<div class="stat-value tnum" id="patri-total">'+animatedEur('patri-total', total)+'</div>';
 
   var loanHtml;
   if(S.loan.monthlyPayment){
@@ -1132,6 +1182,7 @@ function renderPatrimoine(){
   });
 
   paintSparklines(document.getElementById('patri-cards'));
+  playNumberAnimations(document.getElementById('view-patrimoine'));
 }
 
 /* ============ ANNUEL ============ */
