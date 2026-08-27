@@ -717,7 +717,7 @@ function openChargeModalPrefilled(vals){
     title:'Ajouter comme charge fixe',
     fields:[
       {key:'name', label:'Nom', value:vals.name},
-      {key:'icon', label:'Emoji', value:vals.icon},
+      {key:'icon', label:'Emoji', type:'emoji', value:vals.icon},
       {key:'amount', label:'Montant mensuel (€)', type:'number', value:vals.amount},
       {key:'dueDay', label:'Jour de prélèvement (1-28)', type:'number', step:'1', value:vals.dueDay},
       {key:'group', label:'Groupe', type:'select', value:vals.group, options:[{value:'communes',label:'Communes'},{value:'personnelles',label:'Personnelles'}]},
@@ -1283,7 +1283,7 @@ function wirePatrimoine(){
     openModal({
       title:'Nouveau fonds de côté',
       fields:[
-        {key:'name', label:'Nom', value:''}, {key:'icon', label:'Emoji', value:'💰'},
+        {key:'name', label:'Nom', value:''}, {key:'icon', label:'Emoji', type:'emoji', value:'💰'},
         {key:'annualTarget', label:'Objectif annuel (€)', type:'number', value:600},
         {key:'monthly', label:'Mis de côté chaque mois (€)', type:'number', value:50}
       ]
@@ -1517,7 +1517,7 @@ function openChargeModal(existing){
     title: existing ? 'Modifier '+existing.name : 'Nouvelle charge fixe',
     fields:[
       {key:'name', label:'Nom', value: existing ? existing.name : ''},
-      {key:'icon', label:'Emoji', value: existing ? existing.icon : '💳'},
+      {key:'icon', label:'Emoji', type:'emoji', value: existing ? existing.icon : '💳'},
       {key:'amount', label:'Montant mensuel (€)', type:'number', value: existing ? existing.amount : 20},
       {key:'dueDay', label:'Jour de prélèvement (1-28)', type:'number', step:'1', value: existing ? existing.dueDay : 1},
       {key:'group', label:'Groupe', type:'select', value: existing ? existing.group : 'personnelles', options:[{value:'communes',label:'Communes'},{value:'personnelles',label:'Personnelles'}]},
