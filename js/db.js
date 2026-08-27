@@ -92,6 +92,8 @@ export function seedIfEmpty(){
       db.put('settings', {key:'loan', value:{}}),
       db.put('settings', {key:'monthlyHistory', value:{}}),
       db.put('settings', {key:'chargePayments', value:{}}),
+      db.put('settings', {key:'categoryRules', value:[]}),
+      db.put('settings', {key:'dismissedSuggestions', value:[]}),
       db.put('settings', {key:'seeded', value:true})
     ]).then(function(){ return true; });
   });

@@ -69,6 +69,7 @@
       <div class="view-head">
         <div><h1>Alertes</h1><div class="hint">Générées automatiquement à partir de tes seuils et de tes saisies — rien à recalculer à la main.</div></div>
       </div>
+      <div id="suggest-list"></div>
       <div class="card"><div class="alert-list" id="alert-list-full"></div></div>
     </section>
 
@@ -84,6 +85,30 @@
         <div class="swipe-empty" id="swipe-empty" style="display:none;">Tout est trié ✓</div>
       </div>
 
+      <div class="tool-row">
+        <button class="tool-btn" type="button" id="scan-btn">📷 Scanner un reçu</button>
+        <button class="tool-btn" type="button" id="voice-btn">🎤 Dicter une dépense</button>
+        <button class="tool-btn" type="button" id="import-toggle-btn">📄 Importer un relevé (CSV)</button>
+        <input type="file" id="scan-file-input" accept="image/*" capture="environment" style="display:none;">
+      </div>
+      <div id="scan-status" style="display:none; margin-bottom:12px; font-size:12px; color:var(--ink-faint);"></div>
+
+      <div class="import-box" id="import-box" style="display:none;">
+        <div class="field" style="margin-bottom:8px;"><label>Colle ton relevé (CSV) ou choisis un fichier</label>
+          <textarea id="import-textarea" placeholder="01/07/2026;CARREFOUR CB;-45,20&#10;02/07/2026;VIR SALAIRE;1500,00"></textarea>
+        </div>
+        <div class="tool-row" style="margin:0;">
+          <input type="file" id="import-file-input" accept=".csv,text/csv,text/plain">
+          <button class="btn-secondary" type="button" id="import-parse-btn">Analyser</button>
+        </div>
+        <div class="import-rows" id="import-rows"></div>
+        <div class="modal-actions" id="import-actions" style="display:none;">
+          <button class="btn-secondary" type="button" id="import-cancel-btn">Annuler</button>
+          <button class="btn-primary" type="button" id="import-confirm-btn">Importer</button>
+        </div>
+      </div>
+
+      <div class="quick-chips" id="quick-chips"></div>
       <form class="quick-add" id="quick-add-form">
         <div class="field"><label>Date</label><input type="date" id="qa-date" required></div>
         <div class="field"><label>Catégorie / libellé</label><input type="text" id="qa-cat" list="qa-cat-list" placeholder="ex: Courses, Salaire…" required><datalist id="qa-cat-list"></datalist></div>
@@ -249,6 +274,9 @@
 
       <div class="section-title">Charges fixes <button class="link" id="charge-add-btn" type="button">+ Charge</button></div>
       <div class="card"><div id="param-charge-list"></div></div>
+
+      <div class="section-title">Règles de catégorisation <span style="text-transform:none; font-weight:400;">— pour l'import CSV et la reconnaissance vocale</span> <button class="link" id="rule-add-btn" type="button">+ Règle</button></div>
+      <div class="card"><div id="rule-list"></div></div>
     </section>
   </main>
 </div>
@@ -270,6 +298,9 @@
   <button class="sheet-item" data-view="automations"><span class="ic">⚡</span> Automatisations</button>
   <button class="sheet-item" data-view="parametres"><span class="ic">⚙</span> Paramètres</button>
 </div>
+
+<div id="modal-root"></div>
+<div class="toast-stack" id="toast-stack"></div>
 
 <script type="module" src="js/app.js"></script>
 </body>
