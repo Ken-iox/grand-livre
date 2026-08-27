@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grand Livre</title>
+<meta name="theme-color" content="#276761">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <div class="brand-mark">GL</div>
+      <div>
+        <div class="brand-name">Grand Livre</div>
+        <div class="brand-sub">Budget · local sur ton téléphone</div>
+      </div>
+    </div>
+    <nav class="primary" id="nav-desktop">
+      <button class="nav-btn active" data-view="dashboard"><span class="ic">◆</span> Tableau de bord</button>
+      <button class="nav-btn" data-view="alertes"><span class="ic">▲</span> Alertes <span class="count" id="alert-count">0</span></button>
+      <button class="nav-btn" data-view="saisie"><span class="ic">✎</span> Saisie rapide</button>
+      <button class="nav-btn" data-view="calendrier"><span class="ic">▦</span> Calendrier</button>
+      <button class="nav-btn" data-view="budgets"><span class="ic">▤</span> Budgets</button>
+      <button class="nav-btn" data-view="abonnements"><span class="ic">↻</span> Abonnements</button>
+      <button class="nav-btn" data-view="patrimoine"><span class="ic">◈</span> Patrimoine</button>
+      <button class="nav-btn" data-view="annuel"><span class="ic">◠</span> Annuel</button>
+      <button class="nav-btn" data-view="automations"><span class="ic">⚡</span> Automatisations</button>
+      <button class="nav-btn" data-view="parametres"><span class="ic">⚙</span> Paramètres</button>
+    </nav>
+    <div class="rail-foot">
+      <button class="theme-toggle" id="theme-toggle"><span>Thème</span><span id="theme-label">Système</span></button>
+      <div class="local-badge"><span class="dot"></span><span>Tout reste sur ton téléphone — rien n'est envoyé en ligne, pas de synchro.</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <!-- ============ DASHBOARD ============ -->
+    <section class="view active" id="view-dashboard">
+      <div class="view-head">
+        <div>
+          <h1>Tableau de bord</h1>
+          <div class="hint" id="dashboard-hint"></div>
+        </div>
+        <div class="month-pick">Mois <select id="month-select"></select></div>
+      </div>
+      <div id="dashboard-empty" class="empty-state" style="display:none;">
+        <div class="ic">◌</div>
+        <div class="t">Pas encore de données pour ce mois</div>
+        <div class="d">Ajoute tes premières entrées dans Saisie rapide — le tableau de bord se remplit tout seul.</div>
+        <button class="btn-primary" style="margin-top:6px;" data-goto="saisie">Aller à Saisie rapide</button>
+      </div>
+      <div id="dashboard-populated"></div>
+    </section>
+
+    <!-- ============ ALERTES ============ -->
+    <section class="view" id="view-alertes">
+      <div class="view-head">
+        <div><h1>Alertes</h1><div class="hint">Générées automatiquement à partir de tes seuils et de tes saisies — rien à recalculer à la main.</div></div>
+      </div>
+      <div class="card"><div class="alert-list" id="alert-list-full"></div></div>
+    </section>
+
+    <!-- ============ SAISIE RAPIDE ============ -->
+    <section class="view" id="view-saisie">
+      <div class="view-head">
+        <div><h1>Saisie rapide</h1><div class="hint">Un seul flux continu, filtrable — plus besoin d'un onglet par mois.</div></div>
+      </div>
+
+      <div id="swipe-section">
+        <div class="section-title">À trier <span style="text-transform:none; font-weight:400;">— glisse à droite pour accepter, à gauche pour reporter</span></div>
+        <div class="swipe-stack" id="swipe-stack"></div>
+        <div class="swipe-empty" id="swipe-empty" style="display:none;">Tout est trié ✓</div>
+      </div>
+
+      <form class="quick-add" id="quick-add-form">
+        <div class="field"><label>Date</label><input type="date" id="qa-date" required></div>
+        <div class="field"><label>Catégorie / libellé</label><input type="text" id="qa-cat" list="qa-cat-list" placeholder="ex: Courses, Salaire…" required><datalist id="qa-cat-list"></datalist></div>
+        <div class="field"><label>Type</label><select id="qa-type">
+          <option value="variable">Variable</option>
+          <option value="revenu">Revenu</option>
+          <option value="epargne">Épargne</option>
+        </select></div>
+        <div class="field"><label>Montant (€)</label><input type="number" step="0.01" min="0" id="qa-amt" placeholder="0,00" required></div>
+        <button class="btn-primary" type="submit">Ajouter</button>
+      </form>
+
+      <div class="toolbar">
+        <span class="tb-label">Filtrer</span>
+        <input type="text" id="tx-search" placeholder="Rechercher une catégorie…">
+        <select id="tx-month"></select>
+        <select id="tx-type">
+          <option value="all">Tous les types</option>
+          <option value="variable">Variable</option>
+          <option value="revenu">Revenu</option>
+          <option value="epargne">Épargne</option>
+        </select>
+      </div>
+
+      <div class="container-x">
+        <table class="tx-table">
+          <thead><tr><th>Date</th><th>Catégorie</th><th>Type</th><th style="text-align:right;">Montant</th><th></th></tr></thead>
+          <tbody id="tx-body"></tbody>
+        </table>
+        <div class="empty-state" id="tx-empty" style="display:none; margin-top:8px;">
+          <div class="ic">◌</div><div class="t">Aucun résultat</div><div class="d">Essaie un autre mois, type ou terme de recherche.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CALENDRIER ============ -->
+    <section class="view" id="view-calendrier">
+      <div class="view-head">
+        <div><h1>Calendrier de trésorerie</h1><div class="hint">Projection du solde jour par jour à partir de tes charges fixes. Les dépenses variables ne sont pas incluses : elles dépendent de toi.</div></div>
+      </div>
+      <div class="card">
+        <div class="toolbar" style="margin-bottom:14px;">
+          <span class="tb-label">Solde de départ</span>
+          <input type="number" step="0.01" id="cal-start">
+          <span class="example-flag" style="margin:0;">à renseigner avec ton vrai solde</span>
+        </div>
+        <div class="cal-grid" id="cal-dow"></div>
+        <div class="cal-grid" id="cal-grid" style="margin-top:4px;"></div>
+        <div class="cal-legend">
+          <span><b id="cal-low-val" class="tnum">—</b> — point bas prévu, à partir du <b id="cal-low-day">—</b></span>
+          <span><b id="cal-end-val" class="tnum">—</b> — solde projeté en fin de mois</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BUDGETS ============ -->
+    <section class="view" id="view-budgets">
+      <div class="view-head">
+        <div><h1>Budgets par catégorie</h1><div class="hint" id="budgets-hint"></div></div>
+        <button class="btn-primary" id="cat-add-btn" type="button">+ Catégorie</button>
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <span class="tb-label">Trier par</span>
+          <select id="cat-sort">
+            <option value="ecart">Écart (le plus dépassé d'abord)</option>
+            <option value="pct">% du budget utilisé</option>
+            <option value="name">Nom (A→Z)</option>
+          </select>
+        </div>
+        <div class="cat-list" id="cat-list"></div>
+      </div>
+    </section>
+
+    <!-- ============ ABONNEMENTS ============ -->
+    <section class="view" id="view-abonnements">
+      <div class="view-head">
+        <div><h1>Abonnements</h1><div class="hint">Tes charges récurrentes marquées "abonnement", avec leur vrai coût annuel.</div></div>
+      </div>
+      <div class="grid cols-4" style="grid-template-columns:1fr 1fr;">
+        <div class="card stat"><div class="stat-label">Total mensuel</div><div class="stat-value tnum" id="sub-total-month">—</div></div>
+        <div class="card stat"><div class="stat-label">Total annuel</div><div class="stat-value tnum" id="sub-total-year">—</div></div>
+      </div>
+      <div class="card" style="margin-top:10px;">
+        <div class="sub-list" id="sub-list"></div>
+        <div class="sub-nudge" id="sub-nudge"></div>
+      </div>
+    </section>
+
+    <!-- ============ PATRIMOINE ============ -->
+    <section class="view" id="view-patrimoine">
+      <div class="view-head">
+        <div><h1>Patrimoine</h1><div class="hint">Épargne, placements, prêt en cours, objectifs et fonds de côté.</div></div>
+      </div>
+      <div class="grid cols-4" style="grid-template-columns:1fr;">
+        <div class="card stat"><div class="stat-label">Total patrimoine</div><div class="stat-value tnum" id="patri-total">—</div></div>
+      </div>
+
+      <div class="section-title">Prêt en cours <button class="link" id="loan-edit-btn" type="button">Modifier</button></div>
+      <div class="card loan-card" id="loan-card"></div>
+
+      <div class="section-title">Comptes &amp; objectifs <button class="link" id="account-add-btn" type="button">+ Compte</button></div>
+      <div class="patri-cards" id="patri-cards"></div>
+
+      <div class="section-title">Fonds de côté <span style="text-transform:none; font-weight:400;">— pour les dépenses rares mais lourdes</span> <button class="link" id="fund-add-btn" type="button">+ Fonds</button></div>
+      <div class="card"><div id="fund-list"></div></div>
+    </section>
+
+    <!-- ============ ANNUEL ============ -->
+    <section class="view" id="view-annuel">
+      <div class="view-head">
+        <div><h1>Récapitulatif annuel</h1><div class="hint" id="annuel-hint"></div></div>
+      </div>
+      <div class="card">
+        <div class="container-x"><div class="year-chart-wrap" id="year-chart"></div></div>
+        <div class="year-legend">
+          <span><i class="sw" style="background:var(--accent-soft);"></i>Revenus</span>
+          <span><i class="sw" style="background:var(--accent);"></i>Dépenses</span>
+        </div>
+        <div class="container-x"><table class="year-table" id="year-table"></table></div>
+      </div>
+    </section>
+
+    <!-- ============ AUTOMATIONS ============ -->
+    <section class="view" id="view-automations">
+      <div class="view-head">
+        <div><h1>Automatisations</h1><div class="hint">Des règles que l'app applique toute seule à chaque saisie — tout se calcule sur le téléphone, sans service externe.</div></div>
+      </div>
+      <div class="auto-list" id="auto-list"></div>
+    </section>
+
+    <!-- ============ PARAMETRES ============ -->
+    <section class="view" id="view-parametres">
+      <div class="view-head">
+        <div><h1>Paramètres</h1><div class="hint">Seuils de diagnostic et charges fixes.</div></div>
+      </div>
+
+      <div class="card">
+        <h3>🐷 Taux d'épargne</h3>
+        <div class="thresh-grid" style="margin-top:10px;">
+          <div class="thresh-row"><div class="lbl"><span>Seuil insuffisant</span><b class="tnum" id="th-savingsLow-val"></b></div><input type="range" min="0" max="40" id="th-savingsLow"></div>
+          <div class="thresh-row"><div class="lbl"><span>Seuil excellent</span><b class="tnum" id="th-savingsGood-val"></b></div><input type="range" min="0" max="40" id="th-savingsGood"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:10px;">
+        <h3>🏠 Charges fixes (% des revenus)</h3>
+        <div class="thresh-grid" style="margin-top:10px;">
+          <div class="thresh-row"><div class="lbl"><span>Seuil excellent</span><b class="tnum" id="th-fixedGood-val"></b></div><input type="range" min="0" max="100" id="th-fixedGood"></div>
+          <div class="thresh-row"><div class="lbl"><span>Seuil max correct</span><b class="tnum" id="th-fixedMax-val"></b></div><input type="range" min="0" max="100" id="th-fixedMax"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:10px;">
+        <h3>🛍️ Dépenses variables (% des revenus)</h3>
+        <div class="thresh-grid" style="margin-top:10px;">
+          <div class="thresh-row"><div class="lbl"><span>Seuil excellent</span><b class="tnum" id="th-variableGood-val"></b></div><input type="range" min="0" max="50" id="th-variableGood"></div>
+          <div class="thresh-row"><div class="lbl"><span>Seuil max correct</span><b class="tnum" id="th-variableMax-val"></b></div><input type="range" min="0" max="50" id="th-variableMax"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:10px;">
+        <h3>✨ Marge confortable</h3>
+        <div class="thresh-row" style="max-width:300px; margin-top:10px;"><div class="lbl"><span>À partir de</span><b class="tnum" id="th-comfortMargin-val"></b></div><input type="range" min="0" max="500" step="10" id="th-comfortMargin"></div>
+      </div>
+
+      <div class="section-title">Charges fixes <button class="link" id="charge-add-btn" type="button">+ Charge</button></div>
+      <div class="card"><div id="param-charge-list"></div></div>
+    </section>
+  </main>
+</div>
+
+<nav class="tabbar" id="nav-mobile">
+  <button class="nav-btn active" data-view="dashboard"><span class="ic">◆</span>Bord</button>
+  <button class="nav-btn" data-view="alertes"><span class="ic">▲</span>Alertes</button>
+  <button class="nav-btn" data-view="saisie"><span class="ic">✎</span>Saisie</button>
+  <button class="nav-btn" data-view="budgets"><span class="ic">▤</span>Budgets</button>
+  <button class="nav-btn" id="more-btn" type="button"><span class="ic">⋯</span>Plus</button>
+</nav>
+<div class="sheet-overlay" id="sheet-overlay"></div>
+<div class="more-sheet" id="more-sheet">
+  <div class="sheet-handle"></div>
+  <button class="sheet-item" data-view="calendrier"><span class="ic">▦</span> Calendrier</button>
+  <button class="sheet-item" data-view="abonnements"><span class="ic">↻</span> Abonnements</button>
+  <button class="sheet-item" data-view="patrimoine"><span class="ic">◈</span> Patrimoine</button>
+  <button class="sheet-item" data-view="annuel"><span class="ic">◠</span> Annuel</button>
+  <button class="sheet-item" data-view="automations"><span class="ic">⚡</span> Automatisations</button>
+  <button class="sheet-item" data-view="parametres"><span class="ic">⚙</span> Paramètres</button>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

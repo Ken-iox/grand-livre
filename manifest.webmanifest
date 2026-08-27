@@ -1,0 +1,15 @@
+{
+  "name": "Grand Livre",
+  "short_name": "Grand Livre",
+  "description": "Budget personnel local, sans cloud.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F1F2ED",
+  "theme_color": "#276761",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
