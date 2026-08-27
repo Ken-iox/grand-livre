@@ -348,8 +348,6 @@ function renderDashboard(){
   var resteVar = effectiveVarBudget - d.variableSpent;
   var isCurrent = selectedMonth === CURRENT_MONTH;
   var today = new Date();
-  var remainingDays = isCurrent ? (daysInMonth(selectedMonth) - today.getDate() + 1) : daysInMonth(selectedMonth);
-  var perDay = remainingDays > 0 ? resteVar/remainingDays : resteVar;
 
   var seriesRange = last6Months(selectedMonth);
   var revSeries = seriesRange.map(function(m){ var a = monthAggregate(m); return a ? a.revenus : 0; });
@@ -369,12 +367,29 @@ function renderDashboard(){
   var alerts = computeAlerts(selectedMonth).slice(0,2);
   var alertsHtml = alerts.length ? alerts.map(alertRowHtml).join('') : '<div style="font-size:11.5px; color:var(--ink-faint);">Rien à signaler ✓</div>';
 
+  var heroLabel, heroValue, proj;
+  if(isCurrent){
+    proj = projectMonthCashflow(selectedMonth);
+    heroLabel = 'Solde projeté en fin de mois';
+    heroValue = proj.endBalance;
+  } else {
+    heroLabel = 'Solde de fin de mois';
+    heroValue = d.agg.solde;
+  }
+  var heroSubHtml = isCurrent
+    ? '<div class="progress-block"><div class="progress-top"><span>Jour <b class="tnum">'+today.getDate()+'</b> / '+daysInMonth(selectedMonth)+'</span><span>Point bas prévu : <b class="tnum" style="'+(proj.lowVal<0?'color:var(--bad);':'')+'">'+eur(proj.lowVal)+'</b> le '+proj.lowDay+'</span></div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+Math.max(0,Math.min(100, today.getDate()/daysInMonth(selectedMonth)*100))+'%; background:var(--accent);"></div></div></div>'
+    : '';
+  var heroWarnHtml = (isCurrent && S.calStartBalance === 0)
+    ? '<button type="button" class="hero-warn" data-goto3="calendrier">⚠️ Solde de départ non renseigné — projection approximative, à corriger dans Calendrier →</button>'
+    : '';
+
   pop.innerHTML =
     '<div class="coach-line">'+humanSummary(d)+'</div>'+
     '<div class="card banner">'+
-      '<div class="big stat"><div class="stat-label">Reste à vivre / jour</div><div class="stat-value tnum">'+animatedEur('reste-a-vivre', perDay)+'</div></div>'+
-      '<div class="progress-block"><div class="progress-top"><span>Jour <b class="tnum">'+(isCurrent?today.getDate():daysInMonth(selectedMonth))+'</b> / '+daysInMonth(selectedMonth)+'</span><span><b class="tnum">'+eur(resteVar)+'</b> disponibles sur '+remainingDays+' jour'+(remainingDays>1?'s':'')+'</span></div>'+
-      '<div class="bar-track"><div class="bar-fill" style="width:'+Math.max(0,Math.min(100, (daysInMonth(selectedMonth)-remainingDays)/daysInMonth(selectedMonth)*100))+'%; background:var(--accent);"></div></div></div>'+
+      '<div class="big stat"><div class="stat-label">'+heroLabel+'</div><div class="stat-value tnum" style="'+(heroValue<0?'color:var(--bad);':'')+'">'+animatedEur('hero-solde', heroValue)+'</div></div>'+
+      heroSubHtml+
+      heroWarnHtml+
     '</div>'+
     '<div class="grid cols-4">'+
       statCardHtml('Revenus', d.agg.revenus, revSeries, 'accent') +
@@ -407,6 +422,8 @@ function renderDashboard(){
   });
   var gotoBtn = pop.querySelector('[data-goto2]');
   if(gotoBtn) gotoBtn.addEventListener('click', function(){ setView('alertes'); });
+  var gotoCal = pop.querySelector('[data-goto3]');
+  if(gotoCal) gotoCal.addEventListener('click', function(){ setView('calendrier'); });
 }
 
 function persistChargePayments(){
@@ -1002,6 +1019,24 @@ function wireSwipe(face){
 }
 
 /* ============ CALENDRIER ============ */
+function projectMonthCashflow(mk){
+  var events = {};
+  function push(day, amt, label, dir){ events[day] = events[day] || []; events[day].push({amt:amt, label:label, dir:dir}); }
+  var revenusThisMonth = txForMonth(mk).filter(function(t){ return t.type==='revenu'; }).reduce(function(a,t){ return a+t.amount; },0);
+  if(revenusThisMonth > 0) push(1, revenusThisMonth, 'Revenus', 'in');
+  S.fixedCharges.forEach(function(c){ push(c.dueDay, -c.amount, c.name, 'out'); });
+  txForMonth(mk).filter(function(t){ return t.type==='epargne'; }).forEach(function(t){ push(parseInt(t.date.slice(8,10),10), -t.amount, t.category||'Épargne', 'out'); });
+
+  var days = daysInMonth(mk);
+  var bal = S.calStartBalance, lowDay = 1, lowVal = bal;
+  var balByDay = {};
+  for(var d=1; d<=days; d++){
+    (events[d]||[]).forEach(function(e){ bal += e.amt; });
+    balByDay[d] = bal;
+    if(bal < lowVal){ lowVal = bal; lowDay = d; }
+  }
+  return {events:events, balByDay:balByDay, lowVal:lowVal, lowDay:lowDay, endBalance:bal, startBalance:S.calStartBalance};
+}
 function wireCalendrier(){
   var input = document.getElementById('cal-start');
   input.value = S.calStartBalance;
@@ -1009,6 +1044,7 @@ function wireCalendrier(){
     S.calStartBalance = parseFloat(input.value) || 0;
     db.put('settings', {key:'calStartBalance', value:S.calStartBalance});
     renderCalendrier();
+    renderDashboard();
   });
 }
 function renderCalendrier(){
@@ -1020,35 +1056,36 @@ function renderCalendrier(){
   var dowEl = document.getElementById('cal-dow');
   dowEl.innerHTML = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map(function(d){ return '<div class="cal-dow">'+d+'</div>'; }).join('');
 
-  var events = {};
-  function push(day, amt, label, dir){ events[day] = events[day] || []; events[day].push({amt:amt, label:label, dir:dir}); }
-  var revenusThisMonth = txForMonth(mk).filter(function(t){ return t.type==='revenu'; }).reduce(function(a,t){ return a+t.amount; },0);
-  if(revenusThisMonth > 0) push(1, revenusThisMonth, 'Revenus', 'in');
-  S.fixedCharges.forEach(function(c){ push(c.dueDay, -c.amount, c.name, 'out'); });
-  txForMonth(mk).filter(function(t){ return t.type==='epargne'; }).forEach(function(t){ push(parseInt(t.date.slice(8,10),10), -t.amount, t.category||'Épargne', 'out'); });
-
-  var start = S.calStartBalance;
-  var bal = start, lowDay = 1, lowVal = start;
+  var proj = projectMonthCashflow(mk);
   var today = new Date().getDate();
   var html = '';
   for(var i=0;i<leading;i++) html += '<div class="cal-cell blank"></div>';
   for(var d=1; d<=days; d++){
     var lines = '';
-    (events[d]||[]).sort(function(a,b){ return b.amt-a.amt; }).forEach(function(e){
-      bal += e.amt;
+    (proj.events[d]||[]).slice().sort(function(a,b){ return b.amt-a.amt; }).forEach(function(e){
       lines += '<div class="cal-line '+e.dir+'">'+(e.amt>0?'+':'')+Math.round(e.amt)+'€ '+e.label+'</div>';
     });
-    if(bal < lowVal){ lowVal = bal; lowDay = d; }
-    var showBal = (events[d]||[]).length ? '<div class="cal-bal tnum">'+Math.round(bal)+' €</div>' : '';
+    var showBal = (proj.events[d]||[]).length ? '<div class="cal-bal tnum">'+Math.round(proj.balByDay[d])+' €</div>' : '';
     var cls = 'cal-cell'+(d===today?' today':'');
     html += '<div class="'+cls+'" data-day="'+d+'"><div class="cal-day">'+d+'</div>'+lines+showBal+'</div>';
   }
   document.getElementById('cal-grid').innerHTML = html;
-  var lowCell = document.querySelector('#cal-grid [data-day="'+lowDay+'"]');
+  var lowCell = document.querySelector('#cal-grid [data-day="'+proj.lowDay+'"]');
   if(lowCell) lowCell.classList.add('low');
-  document.getElementById('cal-low-val').textContent = eur(lowVal);
-  document.getElementById('cal-low-day').textContent = lowDay;
-  document.getElementById('cal-end-val').textContent = eur(bal);
+  document.getElementById('cal-low-val').textContent = eur(proj.lowVal);
+  document.getElementById('cal-low-day').textContent = proj.lowDay;
+  document.getElementById('cal-end-val').textContent = eur(proj.endBalance);
+
+  var hint = document.getElementById('cal-start-hint');
+  if(hint){
+    if(S.calStartBalance === 0){
+      hint.textContent = 'à 0 par défaut — renseigne ton vrai solde pour des projections fiables';
+      hint.classList.add('warn-flag');
+    } else {
+      hint.textContent = 'utilisé pour les projections (ici et sur le Tableau de bord)';
+      hint.classList.remove('warn-flag');
+    }
+  }
 }
 
 /* ============ BUDGETS ============ */
@@ -1179,8 +1216,22 @@ function accountLatest(a){
   return keys.length ? a.snapshots[keys[keys.length-1]] : 0;
 }
 function renderPatrimoine(){
-  var total = S.patrimoineAccounts.reduce(function(sum,a){ return sum+accountLatest(a); }, 0);
-  document.getElementById('patri-total').outerHTML = '<div class="stat-value tnum" id="patri-total">'+animatedEur('patri-total', total)+'</div>';
+  var accountsTotal = S.patrimoineAccounts.reduce(function(sum,a){ return sum+accountLatest(a); }, 0);
+  var fundsTotal = S.sinkingFunds.reduce(function(sum,f){ return sum+(f.accumulated||0); }, 0);
+  var loanRemaining = S.loan.remaining || 0;
+  var total = accountsTotal + fundsTotal - loanRemaining;
+  var hasAnyData = S.patrimoineAccounts.length || S.sinkingFunds.length || S.loan.monthlyPayment;
+  var totalCard = document.getElementById('patri-total-card');
+  if(!hasAnyData){
+    totalCard.innerHTML = '<div class="stat-label">Total patrimoine</div><div style="font-size:12px;color:var(--ink-faint); margin-top:6px;">Aucune donnée pour l’instant — ajoute un compte, un fonds ou un prêt ci-dessous.</div>';
+  } else {
+    var breakdown = [];
+    if(S.patrimoineAccounts.length) breakdown.push('Comptes '+eur(accountsTotal));
+    if(S.sinkingFunds.length) breakdown.push('Fonds de côté '+eur(fundsTotal));
+    if(loanRemaining) breakdown.push('Prêt restant −'+eur(loanRemaining));
+    totalCard.innerHTML = '<div class="stat-label">Total patrimoine</div><div class="stat-value tnum" id="patri-total">'+animatedEur('patri-total', total)+'</div>'+
+      (breakdown.length>1 ? '<div style="font-size:11.5px; color:var(--ink-faint); margin-top:4px;">'+breakdown.join(' · ')+'</div>' : '');
+  }
 
   var loanHtml;
   if(S.loan.monthlyPayment){
@@ -1284,7 +1335,11 @@ function renderAnnuel(){
     var lastRev = revPts[revPts.length-1], lastDep = depPts[depPts.length-1];
     var areaDep = depD+' L'+lastDep[0].toFixed(1)+','+(h-padB)+' L'+depPts[0][0].toFixed(1)+','+(h-padB)+' Z';
     var gridLines = [0,0.5,1].map(function(f){ var y=h-padB-f*(h-padT-padB); return '<line x1="'+padL+'" y1="'+y+'" x2="'+(w-padR)+'" y2="'+y+'" stroke="var(--line)" stroke-width="1"/>'; }).join('');
-    var labels = months.map(function(mk,i){ var pp=pt(i,0); return '<text x="'+pp[0].toFixed(1)+'" y="'+(h-4)+'" font-size="9.5" fill="var(--ink-faint)" text-anchor="middle">'+MONTH_NAMES[i].slice(0,4)+'.</text>'; }).join('');
+    var labels = months.map(function(mk,i){
+      var pp=pt(i,0);
+      var anchor = i===0 ? 'start' : (i===months.length-1 ? 'end' : 'middle');
+      return '<text x="'+pp[0].toFixed(1)+'" y="'+(h-4)+'" font-size="9.5" fill="var(--ink-faint)" text-anchor="'+anchor+'">'+MONTH_NAMES[i].slice(0,4)+'.</text>';
+    }).join('');
     svg = '<svg viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+gridLines+
       '<path d="'+areaDep+'" fill="'+depColor+'" opacity="0.08" stroke="none"/>'+
       '<path d="'+revD+'" fill="none" stroke="'+revColor+'" stroke-width="2"/>'+
