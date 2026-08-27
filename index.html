@@ -286,6 +286,40 @@
 
       <div class="section-title">Règles de catégorisation <span style="text-transform:none; font-weight:400;">— pour l'import CSV et la reconnaissance vocale</span> <button class="link" id="rule-add-btn" type="button">+ Règle</button></div>
       <div class="card"><div id="rule-list"></div></div>
+
+      <div class="section-title">Application</div>
+      <div class="card" id="install-card" style="display:none; margin-bottom:10px;">
+        <h3>📲 Installer l'app</h3>
+        <div style="font-size:12.5px; color:var(--ink-soft); margin:8px 0 12px;">Ajoute Grand Livre à ton écran d'accueil pour l'ouvrir comme une vraie app, hors-ligne.</div>
+        <button class="btn-primary" type="button" id="install-btn">Installer sur cet appareil</button>
+      </div>
+      <div class="card">
+        <h3>🔒 Verrouillage par code</h3>
+        <div style="font-size:12.5px; color:var(--ink-soft); margin:8px 0 12px;">Demande un code à 4 chiffres à l'ouverture de l'app. Protège tes données si quelqu'un d'autre prend ton téléphone déverrouillé.</div>
+        <div class="auto-card" style="border:none; padding:0;">
+          <label class="switch"><input type="checkbox" id="lock-toggle"><span class="track"><span class="thumb"></span></span></label>
+          <div class="auto-body"><div class="auto-title" id="lock-status">Désactivé</div></div>
+          <button class="link" id="lock-change-btn" style="display:none;">Changer le code</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:10px;">
+        <h3>🔔 Rappels même app fermée</h3>
+        <div style="font-size:12.5px; color:var(--ink-soft); margin:8px 0 12px;">Tentative de rappel avant échéance sans ouvrir l'app. <b>Non garanti</b> : dépend d'Android, de l'optimisation de batterie, et nécessite d'avoir installé l'app sur l'écran d'accueil.</div>
+        <div class="auto-card" style="border:none; padding:0;">
+          <label class="switch"><input type="checkbox" id="push-toggle"><span class="track"><span class="thumb"></span></span></label>
+          <div class="auto-body"><div class="auto-title" id="push-status">Désactivé</div></div>
+        </div>
+      </div>
+
+      <div class="section-title">Sauvegarde</div>
+      <div class="card">
+        <div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:12px;">Toutes tes données vivent uniquement sur ce téléphone. Sans sauvegarde, un changement d'appareil ou une réinitialisation les efface définitivement.</div>
+        <div class="tool-row" style="margin-bottom:0;">
+          <button class="btn-primary" type="button" id="export-btn">📤 Exporter mes données</button>
+          <button class="btn-secondary" type="button" id="import-backup-btn">📥 Restaurer une sauvegarde</button>
+          <input type="file" id="import-backup-input" accept="application/json" style="display:none;">
+        </div>
+      </div>
     </section>
   </main>
 </div>
@@ -310,6 +344,8 @@
 
 <button class="fab" id="fab-add" type="button" aria-label="Ajouter une dépense">+</button>
 <div id="modal-root"></div>
+<div id="onboard-root"></div>
+<div id="lock-root"></div>
 <div class="toast-stack" id="toast-stack"></div>
 
 <script type="module" src="js/app.js"></script>

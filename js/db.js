@@ -94,6 +94,9 @@ export function seedIfEmpty(){
       db.put('settings', {key:'chargePayments', value:{}}),
       db.put('settings', {key:'categoryRules', value:[]}),
       db.put('settings', {key:'dismissedSuggestions', value:[]}),
+      db.put('settings', {key:'appLock', value:{enabled:false, pinHash:null}}),
+      db.put('settings', {key:'onboarded', value:false}),
+      db.put('settings', {key:'pushReminders', value:false}),
       db.put('settings', {key:'seeded', value:true})
     ]).then(function(){ return true; });
   });

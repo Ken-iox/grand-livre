@@ -5,8 +5,15 @@ import { db, seedIfEmpty } from './db.js';
 var S = {
   categories: [], fixedCharges: [], transactions: [], patrimoineAccounts: [], sinkingFunds: [],
   thresholds: {}, automations: {}, calStartBalance: 1200, loan: {}, monthlyHistory: {}, chargePayments: {},
-  categoryRules: [], dismissedSuggestions: []
+  categoryRules: [], dismissedSuggestions: [], appLock: {enabled:false, pinHash:null}, onboarded: false, pushReminders: false
 };
+
+/* évite un flash des vraies données pendant le chargement si le verrouillage est actif */
+try {
+  if(localStorage.getItem('gl-lock-enabled') === '1'){
+    document.getElementById('lock-root').innerHTML = '<div class="lock-overlay"><div class="lock-mark">GL</div><div class="lock-title">Chargement…</div></div>';
+  }
+} catch(e){}
 var selectedMonth = null; // 'YYYY-MM', dashboard + saisie filter
 var CURRENT_MONTH = monthKey(new Date());
 var CURRENT_YEAR = String(new Date().getFullYear());
@@ -126,12 +133,35 @@ function deleteWithUndo(store, obj, arrayRef, label, afterFn){
 seedIfEmpty().then(loadAll).then(function(){
   selectedMonth = CURRENT_MONTH;
   wireNav(); wireTheme(); wireSheet();
-  wireSaisie(); wireSaisieTools(); wireCalendrier(); wireBudgets(); wirePatrimoine(); wireParametres(); wireFab();
+  wireSaisie(); wireSaisieTools(); wireCalendrier(); wireBudgets(); wirePatrimoine(); wireParametres(); wireFab(); wireAppSettings();
   renderAll();
+  renderLockSettings();
+  renderPushSettings();
+  maybeShowOnboarding();
+
+  if(S.appLock && S.appLock.enabled){ showLockScreen(); }
+  else { document.getElementById('lock-root').innerHTML = ''; try{ localStorage.setItem('gl-lock-enabled','0'); }catch(e){} }
 
   var action = new URLSearchParams(window.location.search).get('action');
   if(action === 'add'){ setView('saisie'); setTimeout(function(){ document.getElementById('qa-amt').focus(); }, 150); }
   else if(action === 'scan'){ setView('saisie'); setTimeout(function(){ document.getElementById('scan-file-input').click(); }, 150); }
+});
+
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  window._deferredInstallPrompt = e;
+  var card = document.getElementById('install-card');
+  if(card) card.style.display = '';
+});
+window.addEventListener('appinstalled', function(){
+  window._deferredInstallPrompt = null;
+  var card = document.getElementById('install-card');
+  if(card) card.style.display = 'none';
+});
+var _appHiddenAt = null;
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden){ _appHiddenAt = Date.now(); }
+  else if(_appHiddenAt && S.appLock && S.appLock.enabled){ showLockScreen(); }
 });
 
 function loadAll(){
@@ -140,7 +170,8 @@ function loadAll(){
     db.getAll('patrimoineAccounts'), db.getAll('sinkingFunds'),
     db.get('settings','thresholds'), db.get('settings','automations'),
     db.get('settings','calStartBalance'), db.get('settings','loan'), db.get('settings','monthlyHistory'),
-    db.get('settings','chargePayments'), db.get('settings','categoryRules'), db.get('settings','dismissedSuggestions')
+    db.get('settings','chargePayments'), db.get('settings','categoryRules'), db.get('settings','dismissedSuggestions'),
+    db.get('settings','appLock'), db.get('settings','onboarded'), db.get('settings','pushReminders')
   ]).then(function(r){
     S.categories = r[0]; S.fixedCharges = r[1]; S.transactions = r[2];
     S.patrimoineAccounts = r[3]; S.sinkingFunds = r[4];
@@ -149,6 +180,8 @@ function loadAll(){
     S.loan = (r[8]&&r[8].value) || {}; S.monthlyHistory = (r[9]&&r[9].value) || {};
     S.chargePayments = (r[10]&&r[10].value) || {};
     S.categoryRules = (r[11]&&r[11].value) || []; S.dismissedSuggestions = (r[12]&&r[12].value) || [];
+    S.appLock = (r[13]&&r[13].value) || {enabled:false, pinHash:null};
+    S.onboarded = !!(r[14]&&r[14].value); S.pushReminders = !!(r[15]&&r[15].value);
   });
 }
 
@@ -374,7 +407,10 @@ function renderDashboard(){
   if(gotoBtn) gotoBtn.addEventListener('click', function(){ setView('alertes'); });
 }
 
-function persistChargePayments(){ db.put('settings', {key:'chargePayments', value:S.chargePayments}); }
+function persistChargePayments(){
+  db.put('settings', {key:'chargePayments', value:S.chargePayments});
+  if(S.pushReminders) updateReminderCache();
+}
 
 function last6Months(endMk){
   var p = endMk.split('-'); var y = parseInt(p[0],10), m = parseInt(p[1],10);
@@ -706,11 +742,33 @@ function renderSaisie(){
       '</div>';
     }).join('');
     list.querySelectorAll('[data-del]').forEach(function(btn){
-      btn.addEventListener('click', function(){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
         var id = parseInt(btn.dataset.del,10);
         var tx = S.transactions.find(function(x){ return x.id===id; });
         deleteWithUndo('transactions', tx, S.transactions, 'Entrée', function(){
           renderSaisie(); renderDashboard(); renderAlerts(); renderBudgets(); renderAnnuel();
+        });
+      });
+    });
+    list.querySelectorAll('.tx-row').forEach(function(row){
+      row.addEventListener('click', function(){
+        var tx = S.transactions.find(function(x){ return x.id===parseInt(row.dataset.tx,10); });
+        openModal({
+          title:'Modifier la transaction',
+          fields:[
+            {key:'date', label:'Date', type:'date', value:tx.date},
+            {key:'category', label:'Catégorie / libellé', value:tx.category},
+            {key:'type', label:'Type', type:'select', value:tx.type, options:[{value:'variable',label:'Dépense'},{value:'revenu',label:'Revenu'},{value:'epargne',label:'Épargne'}]},
+            {key:'amount', label:'Montant (€)', type:'number', value:tx.amount}
+          ]
+        }).then(function(v){
+          if(!v || !v.date || isNaN(v.amount)) return;
+          tx.date = v.date; tx.category = v.category; tx.type = v.type; tx.amount = v.amount;
+          db.put('transactions', tx).then(function(){
+            showToast('Transaction modifiée.');
+            renderSaisie(); renderDashboard(); renderAlerts(); renderBudgets(); renderAnnuel();
+          });
         });
       });
     });
@@ -1316,6 +1374,7 @@ function renderParametres(){
       '<div class="charge-amt tnum">'+eur(c.amount)+'</div>'+
       '<button class="icon-btn" data-del-charge="'+c.id+'" title="Supprimer" style="margin-left:6px;">×</button></div>';
   }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">Aucune charge fixe.</div>';
+  if(S.pushReminders) updateReminderCache();
   document.querySelectorAll('[data-edit-charge]').forEach(function(btn){
     btn.addEventListener('click', function(){
       openChargeModal(S.fixedCharges.find(function(x){ return x.id===parseInt(btn.dataset.editCharge,10); }));
@@ -1363,6 +1422,316 @@ function matchCategoryByKeyword(text){
   var low = text.toLowerCase();
   var hit = S.categoryRules.find(function(r){ return low.indexOf(r.keyword) !== -1; });
   return hit ? hit.category : null;
+}
+
+/* ============ VERROUILLAGE PAR CODE ============ */
+function sha256Hex(text){
+  var enc = new TextEncoder().encode(text);
+  return crypto.subtle.digest('SHA-256', enc).then(function(buf){
+    return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  });
+}
+function renderPinPad(container, opts){
+  container.innerHTML =
+    '<div class="lock-overlay">'+
+      '<div class="lock-mark">GL</div>'+
+      '<div class="lock-title">'+opts.title+'</div>'+
+      '<div class="lock-dots">'+[0,1,2,3].map(function(){ return '<div class="lock-dot"></div>'; }).join('')+'</div>'+
+      '<div class="lock-error"></div>'+
+      '<div class="lock-keypad">'+
+        [1,2,3,4,5,6,7,8,9].map(function(n){ return '<button type="button" class="lock-key" data-k="'+n+'">'+n+'</button>'; }).join('')+
+        '<button type="button" class="lock-key ghost" data-k="cancel">'+(opts.cancelable?'Annuler':'')+'</button>'+
+        '<button type="button" class="lock-key" data-k="0">0</button>'+
+        '<button type="button" class="lock-key ghost" data-k="back">⌫</button>'+
+      '</div>'+
+    '</div>';
+  var buf = '';
+  var dotsEl = container.querySelectorAll('.lock-dot');
+  var errEl = container.querySelector('.lock-error');
+  function updateDots(err){
+    dotsEl.forEach(function(d,i){ d.className = 'lock-dot' + (i<buf.length ? (err?' err':' filled') : ''); });
+  }
+  container.querySelectorAll('[data-k]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var k = btn.dataset.k;
+      if(k === 'back'){ buf = buf.slice(0,-1); updateDots(); return; }
+      if(k === 'cancel'){ if(opts.onCancel) opts.onCancel(); return; }
+      if(buf.length >= 4) return;
+      buf += k; updateDots();
+      if(buf.length === 4){
+        var pin = buf;
+        setTimeout(function(){
+          opts.onSubmit(pin, function(ok){
+            if(!ok){
+              updateDots(true);
+              errEl.textContent = opts.errorMsg || 'Code incorrect.';
+              setTimeout(function(){ buf=''; updateDots(); errEl.textContent=''; }, 500);
+            }
+          });
+        }, 80);
+      }
+    });
+  });
+}
+function setupPin(){
+  return new Promise(function(resolve){
+    var root = document.createElement('div');
+    document.body.appendChild(root);
+    function stepOne(){
+      renderPinPad(root, {
+        title:'Choisis un code à 4 chiffres', cancelable:true,
+        onCancel:function(){ document.body.removeChild(root); resolve(null); },
+        onSubmit:function(pin1, done){ done(true); stepTwo(pin1); }
+      });
+    }
+    function stepTwo(pin1){
+      renderPinPad(root, {
+        title:'Confirme le code', cancelable:true,
+        onCancel:function(){ document.body.removeChild(root); resolve(null); },
+        onSubmit:function(pin2, done){
+          if(pin2 === pin1){ done(true); document.body.removeChild(root); resolve(pin1); }
+          else done(false);
+        }
+      });
+    }
+    stepOne();
+  });
+}
+function showLockScreen(){
+  var root = document.getElementById('lock-root');
+  renderPinPad(root, {
+    title:'Entre ton code', cancelable:false,
+    onSubmit:function(pin, done){
+      sha256Hex(pin).then(function(hash){
+        if(hash === S.appLock.pinHash){ done(true); root.innerHTML=''; }
+        else done(false);
+      });
+    }
+  });
+}
+function renderLockSettings(){
+  var toggle = document.getElementById('lock-toggle');
+  toggle.checked = !!(S.appLock && S.appLock.enabled);
+  document.getElementById('lock-status').textContent = toggle.checked ? 'Activé' : 'Désactivé';
+  document.getElementById('lock-change-btn').style.display = toggle.checked ? '' : 'none';
+}
+
+/* ============ SAUVEGARDE / RESTAURATION ============ */
+function clearAllStores(){
+  var stores = ['categories','fixedCharges','transactions','patrimoineAccounts','sinkingFunds'];
+  return Promise.all(stores.map(function(s){
+    return db.getAll(s).then(function(all){ return Promise.all(all.map(function(o){ return db.delete(s, o.id); })); });
+  }));
+}
+function exportBackup(){
+  return Promise.all([
+    db.getAll('categories'), db.getAll('fixedCharges'), db.getAll('transactions'),
+    db.getAll('patrimoineAccounts'), db.getAll('sinkingFunds'),
+    db.get('settings','thresholds'), db.get('settings','automations'), db.get('settings','calStartBalance'),
+    db.get('settings','loan'), db.get('settings','monthlyHistory'), db.get('settings','chargePayments'),
+    db.get('settings','categoryRules'), db.get('settings','dismissedSuggestions')
+  ]).then(function(r){
+    var payload = {
+      app:'grand-livre', version:1, exportedAt:new Date().toISOString(),
+      categories:r[0], fixedCharges:r[1], transactions:r[2], patrimoineAccounts:r[3], sinkingFunds:r[4],
+      settings:{
+        thresholds:(r[5]&&r[5].value)||{}, automations:(r[6]&&r[6].value)||{},
+        calStartBalance:(r[7]&&r[7].value)||0, loan:(r[8]&&r[8].value)||{},
+        monthlyHistory:(r[9]&&r[9].value)||{}, chargePayments:(r[10]&&r[10].value)||{},
+        categoryRules:(r[11]&&r[11].value)||[], dismissedSuggestions:(r[12]&&r[12].value)||[]
+      }
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'grand-livre-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+    showToast('Sauvegarde téléchargée.');
+  });
+}
+function importBackupFile(file){
+  var reader = new FileReader();
+  new Promise(function(resolve, reject){
+    reader.onload = function(){ try{ resolve(JSON.parse(reader.result)); }catch(e){ reject(e); } };
+    reader.onerror = reject;
+    reader.readAsText(file);
+  }).then(function(data){
+    if(!data || data.app !== 'grand-livre') throw new Error('format');
+    var dateStr = data.exportedAt ? new Date(data.exportedAt).toLocaleDateString('fr-FR') : 'date inconnue';
+    return confirmModal('Restaurer cette sauvegarde ?', 'Toutes tes données actuelles seront remplacées par celles du '+dateStr+'. Cette action est irréversible.', {danger:true, okLabel:'Remplacer'}).then(function(ok){
+      if(!ok) return;
+      return clearAllStores().then(function(){
+        var ops = [];
+        (data.categories||[]).forEach(function(c){ var o=Object.assign({},c); delete o.id; ops.push(db.add('categories', o)); });
+        (data.fixedCharges||[]).forEach(function(c){ var o=Object.assign({},c); delete o.id; ops.push(db.add('fixedCharges', o)); });
+        (data.transactions||[]).forEach(function(t){ var o=Object.assign({},t); delete o.id; ops.push(db.add('transactions', o)); });
+        (data.patrimoineAccounts||[]).forEach(function(a){ var o=Object.assign({},a); delete o.id; ops.push(db.add('patrimoineAccounts', o)); });
+        (data.sinkingFunds||[]).forEach(function(f){ var o=Object.assign({},f); delete o.id; ops.push(db.add('sinkingFunds', o)); });
+        var s = data.settings||{};
+        ops.push(db.put('settings', {key:'thresholds', value:s.thresholds||{}}));
+        ops.push(db.put('settings', {key:'automations', value:s.automations||{}}));
+        ops.push(db.put('settings', {key:'calStartBalance', value:s.calStartBalance||0}));
+        ops.push(db.put('settings', {key:'loan', value:s.loan||{}}));
+        ops.push(db.put('settings', {key:'monthlyHistory', value:s.monthlyHistory||{}}));
+        ops.push(db.put('settings', {key:'chargePayments', value:s.chargePayments||{}}));
+        ops.push(db.put('settings', {key:'categoryRules', value:s.categoryRules||[]}));
+        ops.push(db.put('settings', {key:'dismissedSuggestions', value:s.dismissedSuggestions||[]}));
+        ops.push(db.put('settings', {key:'onboarded', value:true}));
+        return Promise.all(ops);
+      }).then(function(){
+        showToast('Sauvegarde restaurée. Rechargement…');
+        setTimeout(function(){ window.location.reload(); }, 1200);
+      });
+    });
+  }).catch(function(){
+    showToast('Fichier invalide — vérifie que c’est bien un export Grand Livre.');
+  });
+}
+
+/* ============ ASSISTANT DE PREMIER LANCEMENT ============ */
+var STARTER_CATEGORIES = [
+  ['Courses','🛒',200], ['Essence','⛽',150], ['Restaurant','🍽️',60], ['Loisirs','🎉',50],
+  ['Santé','🩺',30], ['Shopping','🛍️',50], ['Abonnements','📱',40], ['Autre','✳️',30]
+];
+function maybeShowOnboarding(){
+  if(S.onboarded) return;
+  if(S.categories.length || S.fixedCharges.length || S.transactions.length){
+    S.onboarded = true; db.put('settings', {key:'onboarded', value:true});
+    return;
+  }
+  var selected = {};
+  STARTER_CATEGORIES.forEach(function(c,i){ if(i<4) selected[c[0]] = true; });
+  var root = document.getElementById('onboard-root');
+  function render(){
+    root.innerHTML =
+      '<div class="onboard-overlay"><div class="onboard-card">'+
+        '<h1>Bienvenue dans Grand Livre</h1>'+
+        '<div class="sub">Choisis quelques catégories de dépenses pour démarrer — tu pourras tout modifier ensuite dans Budgets.</div>'+
+        '<div class="onboard-grid">'+STARTER_CATEGORIES.map(function(c){
+          var on = !!selected[c[0]];
+          return '<button type="button" class="onboard-chip'+(on?' on':'')+'" data-ob="'+c[0]+'"><span class="check"></span>'+c[1]+' '+c[0]+'</button>';
+        }).join('')+'</div>'+
+        '<button class="btn-primary btn-block" type="button" id="onboard-start">Créer et commencer</button>'+
+        '<button class="btn-secondary btn-block" type="button" id="onboard-skip" style="margin-top:8px;">Passer, je préfère tout créer moi-même</button>'+
+      '</div></div>';
+    root.querySelectorAll('[data-ob]').forEach(function(btn){
+      btn.addEventListener('click', function(){ selected[btn.dataset.ob] = !selected[btn.dataset.ob]; render(); });
+    });
+    document.getElementById('onboard-start').addEventListener('click', finish);
+    document.getElementById('onboard-skip').addEventListener('click', function(){ selected = {}; finish(); });
+  }
+  function finish(){
+    var toCreate = STARTER_CATEGORIES.filter(function(c){ return selected[c[0]]; });
+    Promise.all(toCreate.map(function(c){ return db.add('categories', {name:c[0], icon:c[1], monthlyBudget:c[2]}); }))
+      .then(function(created){
+        created.forEach(function(c){ S.categories.push(c); });
+        S.onboarded = true;
+        return db.put('settings', {key:'onboarded', value:true});
+      }).then(function(){
+        root.innerHTML = '';
+        renderBudgets(); renderSaisie();
+        if(toCreate.length) showToast(toCreate.length+' catégorie'+(toCreate.length>1?'s créées':' créée')+'.');
+      });
+  }
+  render();
+}
+
+/* ============ RAPPELS MEILLEUR EFFORT (app fermée) ============ */
+function updateReminderCache(){
+  if(!('caches' in window)) return;
+  var data = {
+    updatedAt:new Date().toISOString(),
+    charges: S.fixedCharges.map(function(c){ return {id:c.id, name:c.name, icon:c.icon, amount:c.amount, dueDay:c.dueDay}; }),
+    paidThisMonth: S.chargePayments[CURRENT_MONTH] || {}
+  };
+  caches.open('gl-data').then(function(c){ c.put('/reminders.json', new Response(JSON.stringify(data), {headers:{'Content-Type':'application/json'}})); });
+}
+function enablePushReminders(){
+  if(!('Notification' in window)) return Promise.resolve(false);
+  return Notification.requestPermission().then(function(perm){
+    if(perm !== 'granted') return false;
+    updateReminderCache();
+    if('serviceWorker' in navigator){
+      return navigator.serviceWorker.ready.then(function(reg){
+        if('periodicSync' in reg){
+          return reg.periodicSync.register('reminders-check', {minInterval: 12*60*60*1000}).then(function(){ return true; }).catch(function(){ return true; });
+        }
+        return true;
+      }).catch(function(){ return true; });
+    }
+    return true;
+  });
+}
+function renderPushSettings(){
+  document.getElementById('push-toggle').checked = !!S.pushReminders;
+  document.getElementById('push-status').textContent = S.pushReminders ? 'Activé (meilleur effort)' : 'Désactivé';
+}
+
+/* ============ WIRING PARAMÈTRES — app, verrouillage, sauvegarde ============ */
+function wireAppSettings(){
+  document.getElementById('install-btn').addEventListener('click', function(){
+    if(!window._deferredInstallPrompt) return;
+    window._deferredInstallPrompt.prompt();
+    window._deferredInstallPrompt.userChoice.then(function(){ window._deferredInstallPrompt = null; });
+  });
+
+  document.getElementById('lock-toggle').addEventListener('change', function(e){
+    if(e.target.checked){
+      setupPin().then(function(pin){
+        if(!pin){ e.target.checked = false; return; }
+        sha256Hex(pin).then(function(hash){
+          S.appLock = {enabled:true, pinHash:hash};
+          db.put('settings', {key:'appLock', value:S.appLock});
+          try{ localStorage.setItem('gl-lock-enabled','1'); }catch(err){}
+          renderLockSettings();
+          showToast('Verrouillage activé.');
+        });
+      });
+    } else {
+      confirmModal('Désactiver le verrouillage ?', null, {okLabel:'Désactiver'}).then(function(ok){
+        if(!ok){ e.target.checked = true; return; }
+        S.appLock = {enabled:false, pinHash:null};
+        db.put('settings', {key:'appLock', value:S.appLock});
+        try{ localStorage.setItem('gl-lock-enabled','0'); }catch(err){}
+        renderLockSettings();
+      });
+    }
+  });
+  document.getElementById('lock-change-btn').addEventListener('click', function(){
+    setupPin().then(function(pin){
+      if(!pin) return;
+      sha256Hex(pin).then(function(hash){
+        S.appLock.pinHash = hash;
+        db.put('settings', {key:'appLock', value:S.appLock});
+        showToast('Code modifié.');
+      });
+    });
+  });
+
+  document.getElementById('push-toggle').addEventListener('change', function(e){
+    if(e.target.checked){
+      enablePushReminders().then(function(ok){
+        S.pushReminders = ok;
+        e.target.checked = ok;
+        db.put('settings', {key:'pushReminders', value:ok});
+        renderPushSettings();
+        if(!ok) showToast('Permission de notification refusée.');
+      });
+    } else {
+      S.pushReminders = false;
+      db.put('settings', {key:'pushReminders', value:false});
+      renderPushSettings();
+    }
+  });
+
+  document.getElementById('export-btn').addEventListener('click', exportBackup);
+  document.getElementById('import-backup-btn').addEventListener('click', function(){ document.getElementById('import-backup-input').click(); });
+  document.getElementById('import-backup-input').addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(file) importBackupFile(file);
+    e.target.value = '';
+  });
 }
 
 /* ============ PWA install ============ */

@@ -240,7 +240,8 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 .toolbar-ghost input:focus, .toolbar-ghost select:focus{ background:var(--surface); border-color:var(--line); outline:none; }
 
 .tx-list{ display:flex; flex-direction:column; }
-.tx-row{ display:flex; align-items:center; gap:11px; padding:9px 2px; border-bottom:1px solid var(--line); }
+.tx-row{ display:flex; align-items:center; gap:11px; padding:9px 2px; border-bottom:1px solid var(--line); cursor:pointer; border-radius:8px; }
+.tx-row:hover{ background:var(--surface-2); }
 .tx-row:last-child{ border-bottom:none; }
 .tx-row-icon{ width:34px; height:34px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
 .tx-row-body{ flex:1; min-width:0; }
@@ -415,6 +416,31 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 .suggest-card{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--accent-soft-line); background:var(--accent-soft); border-radius:9px; margin-bottom:8px; font-size:12.5px; }
 .suggest-card .body{ flex:1; }
 .suggest-card button{ flex-shrink:0; }
+
+/* ============ ONBOARDING ============ */
+.onboard-overlay{ position:fixed; inset:0; background:var(--bg); z-index:70; display:flex; align-items:center; justify-content:center; padding:20px; overflow-y:auto; }
+.onboard-card{ max-width:420px; width:100%; }
+.onboard-card h1{ font-size:23px; margin-bottom:6px; }
+.onboard-card .sub{ font-size:13px; color:var(--ink-soft); margin-bottom:20px; }
+.onboard-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:22px; }
+.onboard-chip{ display:flex; align-items:center; gap:8px; padding:11px 12px; border-radius:11px; border:1.5px solid var(--line); background:var(--surface); cursor:pointer; font-size:13px; font-weight:500; text-align:left; }
+.onboard-chip.on{ border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+.onboard-chip .check{ width:16px; height:16px; border-radius:50%; border:1.5px solid var(--line-strong); flex-shrink:0; }
+.onboard-chip.on .check{ background:var(--accent); border-color:var(--accent); }
+
+/* ============ LOCK SCREEN ============ */
+.lock-overlay{ position:fixed; inset:0; background:var(--bg); z-index:80; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:20px; }
+.lock-mark{ width:54px; height:54px; border-radius:14px; background:var(--accent); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:600; font-size:24px; }
+.lock-title{ font-family:var(--font-display); font-size:17px; font-weight:600; }
+.lock-dots{ display:flex; gap:14px; }
+.lock-dot{ width:14px; height:14px; border-radius:50%; border:1.5px solid var(--line-strong); }
+.lock-dot.filled{ background:var(--accent); border-color:var(--accent); }
+.lock-dot.err{ background:var(--bad); border-color:var(--bad); }
+.lock-keypad{ display:grid; grid-template-columns:repeat(3,64px); gap:12px; }
+.lock-key{ width:64px; height:64px; border-radius:50%; border:1px solid var(--line); background:var(--surface); font-size:20px; font-family:var(--font-mono); color:var(--ink); cursor:pointer; }
+.lock-key:active{ background:var(--surface-2); }
+.lock-key.ghost{ border:none; background:none; }
+.lock-error{ font-size:12px; color:var(--bad); min-height:16px; }
 
 /* ============ FAB ============ */
 .fab{
