@@ -564,7 +564,7 @@ function renderBudgets(){
       '<div class="cat-nums"><span class="budget tnum">'+eur(r.annual)+'</span><span class="ecart tnum" style="color:'+color+';">'+eur(r.ecart)+'</span></div>'+
       '<button class="icon-btn" data-del-cat="'+r.id+'" title="Supprimer">×</button>'+
     '</div>';
-  }).join('');
+  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">Aucune catégorie. Clique "+ Catégorie" pour commencer.</div>';
   document.querySelectorAll('[data-edit-cat]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var c = S.categories.find(function(x){ return x.id===parseInt(btn.dataset.editCat,10); });
@@ -653,7 +653,7 @@ function renderPatrimoine(){
       (a.goal>0 ? '<div class="goal-row"><div class="goal-top" data-edit-goal="'+a.id+'" style="cursor:pointer;"><span>Objectif ✎</span><span class="tnum">'+eur(bal)+' / '+eur(a.goal)+'</span></div><div class="bar-track"><div class="bar-fill" style="width:'+goalPct+'%; background:var(--accent);"></div></div></div>'
         : '<div class="goal-row"><div class="goal-top" data-edit-goal="'+a.id+'" style="cursor:pointer;"><span>+ Définir un objectif</span></div></div>') +
     '</div>';
-  }).join('');
+  }).join('') || '<div style="font-size:12px;color:var(--ink-faint);">Aucun compte. Clique "+ Compte" pour en ajouter un.</div>';
   document.querySelectorAll('[data-update-bal]').forEach(function(btn){
     btn.addEventListener('click', function(){
       var a = S.patrimoineAccounts.find(function(x){ return x.id===parseInt(btn.dataset.updateBal,10); });
