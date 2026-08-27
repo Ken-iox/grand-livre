@@ -1,3 +1,4 @@
+// © 2026 Ken-iox — Tous droits réservés. Voir LICENSE. Toute réutilisation est interdite sans autorisation écrite.
 import { db, seedIfEmpty } from './db.js';
 
 /* ============ STATE ============ */
