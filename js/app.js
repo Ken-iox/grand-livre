@@ -30,6 +30,21 @@ function cssVar(name){ return getComputedStyle(document.documentElement).getProp
 var ESC_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ESC_MAP[c]; }); }
 
+/* ============ EMOJI PICKER (liste maison, aucune dépendance) ============ */
+var EMOJI_PICKER = [
+  '🛒','🍽️','☕','🍕','🍷','🏠','💡','💧','🔥','📶',
+  '🚗','⛽','🚌','🚲','🚕','🅿️','✈️','🏖️',
+  '🏥','💊','🦷','👓','🏋️','⚽','💇','💄',
+  '🛍️','👕','👟','🎬','🎮','📚','🎵','🎉',
+  '🐾','👶','🎁','💼','🎓','📱','💻','🔧','🧹',
+  '💳','📈','🏦','🧾','✳️'
+];
+function renderEmojiGrid(current){
+  return EMOJI_PICKER.map(function(e){
+    return '<button type="button" class="emoji-opt'+(e===current?' active':'')+'" data-emoji="'+e+'">'+e+'</button>';
+  }).join('');
+}
+
 /* ============ MODAL / TOAST (remplacent prompt/confirm) ============ */
 function openModal(opts){
   // opts: {title, fields:[{key,label,type,value,options,step}], submitLabel, danger, onSubmit(values), onCancel}
@@ -42,6 +57,13 @@ function openModal(opts){
         return '<div class="modal-field"><label>'+f.label+'</label><select data-mf="'+f.key+'">'+
           f.options.map(function(o){ return '<option value="'+esc(o.value)+'"'+(o.value===f.value?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')+
           '</select></div>';
+      }
+      if(f.type === 'emoji'){
+        return '<div class="modal-field"><label>'+f.label+'</label>'+
+          '<input type="hidden" data-mf="'+f.key+'" value="'+esc(f.value||'')+'">'+
+          '<div class="emoji-grid">'+renderEmojiGrid(f.value)+
+            '<input type="text" class="emoji-custom" data-emoji-custom placeholder="Autre…" maxlength="4" value="">'+
+          '</div></div>';
       }
       var type = f.type || 'text';
       var step = type==='number' ? ' step="'+(f.step||'0.01')+'"' : '';
@@ -58,8 +80,26 @@ function openModal(opts){
         '</div>'+
       '</div>';
     root.appendChild(overlay);
-    var firstInput = overlay.querySelector('[data-mf]');
+    var firstInput = overlay.querySelector('input[type="text"][data-mf], input[type="number"][data-mf]') || overlay.querySelector('[data-mf]');
     if(firstInput) firstInput.focus();
+    overlay.querySelectorAll('.emoji-opt').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var wrap = btn.closest('.modal-field');
+        wrap.querySelectorAll('.emoji-opt').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        wrap.querySelector('[data-mf]').value = btn.dataset.emoji;
+        var custom = wrap.querySelector('[data-emoji-custom]');
+        if(custom) custom.value = '';
+      });
+    });
+    overlay.querySelectorAll('[data-emoji-custom]').forEach(function(inp){
+      inp.addEventListener('input', function(){
+        var wrap = inp.closest('.modal-field');
+        if(!inp.value) return;
+        wrap.querySelectorAll('.emoji-opt').forEach(function(b){ b.classList.remove('active'); });
+        wrap.querySelector('[data-mf]').value = inp.value;
+      });
+    });
     function close(result){
       root.removeChild(overlay);
       document.removeEventListener('keydown', onKey);
@@ -1152,7 +1192,7 @@ function wireBudgets(){
       title:'Nouvelle catégorie',
       fields:[
         {key:'name', label:'Nom', value:''},
-        {key:'icon', label:'Emoji', value:'✳️'},
+        {key:'icon', label:'Emoji', type:'emoji', value:'✳️'},
         {key:'monthlyBudget', label:'Budget mensuel (€)', type:'number', value:30}
       ]
     }).then(function(v){
@@ -1189,7 +1229,7 @@ function renderBudgets(){
       openModal({
         title:'Modifier '+c.name,
         fields:[
-          {key:'icon', label:'Emoji', value:c.icon},
+          {key:'icon', label:'Emoji', type:'emoji', value:c.icon},
           {key:'monthlyBudget', label:'Budget mensuel (€)', type:'number', value:c.monthlyBudget}
         ]
       }).then(function(v){

@@ -393,6 +393,12 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 .modal-card{ background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:380px; padding:18px; max-height:88vh; overflow-y:auto; }
 .modal-card h2{ font-size:16px; margin-bottom:14px; }
 .modal-field{ display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.emoji-grid{ display:grid; grid-template-columns:repeat(8,1fr); gap:4px; max-height:150px; overflow-y:auto; padding:2px; }
+.emoji-opt{ width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:17px; border-radius:7px; border:1px solid var(--line); background:var(--bg); cursor:pointer; padding:0; }
+.emoji-opt:hover{ background:var(--surface-2); }
+.emoji-opt.active{ border-color:var(--accent); background:var(--accent-soft); }
+.emoji-custom{ grid-column:1 / -1; font:inherit; font-size:12px; padding:6px 8px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); text-align:center; margin-top:2px; }
+.emoji-custom:focus{ outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
 .modal-field label{ font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
 .modal-field input, .modal-field select{ font:inherit; font-size:13.5px; padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
 .modal-field input:focus, .modal-field select:focus{ outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
