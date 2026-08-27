@@ -202,8 +202,7 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 .icon-btn{ background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:13px; padding:2px 4px; line-height:1; border-radius:5px; }
 .icon-btn:hover{ color:var(--bad); background:var(--bad-soft); }
 
-/* saisie rapide */
-.quick-add{ display:grid; grid-template-columns:130px 1fr 120px 120px auto; gap:8px; align-items:end; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:13px; box-shadow:var(--shadow); margin-bottom:14px; }
+/* ============ SAISIE RAPIDE — carte d'ajout ============ */
 .field{ display:flex; flex-direction:column; gap:4px; }
 .field label{ font-size:10px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:600; }
 .field input, .field select{ font:inherit; font-size:12.5px; padding:7px 9px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
@@ -211,13 +210,44 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 .btn-primary{ background:var(--accent); color:var(--accent-ink); border:none; border-radius:7px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; }
 .btn-primary:hover{ filter:brightness(1.06); }
 .btn-primary:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+.btn-block{ width:100%; padding:13px; font-size:14px; margin-top:14px; }
 
-.tx-table{ width:100%; border-collapse:collapse; }
-.tx-table th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600; padding:6px 9px; border-bottom:1px solid var(--line-strong); }
-.tx-table td{ padding:7px 9px; border-bottom:1px solid var(--line); font-size:12.5px; }
-.tx-table tr:hover td{ background:var(--surface-2); }
-.tx-table td.amt{ font-family:var(--font-mono); text-align:right; font-weight:500; }
-.tx-table td.actions{ text-align:right; width:26px; }
+.add-card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:16px 18px 18px; box-shadow:var(--shadow); margin-bottom:16px; }
+.add-card-tools{ display:flex; justify-content:flex-end; gap:2px; margin-bottom:2px; }
+.ghost-icon-btn{ background:none; border:none; font-size:17px; padding:7px 9px; border-radius:9px; cursor:pointer; color:var(--ink-faint); line-height:1; }
+.ghost-icon-btn:hover{ background:var(--surface-2); color:var(--ink); }
+.ghost-icon-btn.recording{ color:var(--bad); background:var(--bad-soft); }
+.scan-status{ font-size:11.5px; color:var(--ink-soft); background:var(--accent-soft); border-radius:8px; padding:7px 10px; margin-bottom:10px; }
+
+.amount-field{ display:flex; align-items:baseline; justify-content:center; gap:4px; padding:10px 0 6px; }
+.amount-field .amount-suffix{ font-family:var(--font-display); font-size:26px; color:var(--ink-faint); }
+.amount-field input{ font-family:var(--font-mono); font-size:44px; font-weight:500; text-align:center; width:auto; max-width:220px; border:none; background:none; color:var(--ink); padding:0; -moz-appearance:textfield; }
+.amount-field input:focus{ outline:none; }
+.amount-field input::-webkit-outer-spin-button, .amount-field input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+
+.segmented{ display:flex; background:var(--surface-2); border-radius:11px; padding:3px; gap:2px; margin-bottom:12px; }
+.seg-btn{ flex:1; border:none; background:none; padding:8px 6px; border-radius:8px; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
+.seg-btn.active{ background:var(--surface); color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+
+.cat-date-row{ display:flex; gap:8px; }
+.cat-date-row input[type=text]{ flex:1; }
+.cat-date-row input[type=date]{ width:132px; flex-shrink:0; }
+.cat-date-row input{ font:inherit; font-size:13px; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+.cat-date-row input:focus{ outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
+
+.toolbar-ghost input, .toolbar-ghost select{ background:none; border:1px solid transparent; color:var(--ink-soft); }
+.toolbar-ghost input:hover, .toolbar-ghost select:hover{ background:var(--surface-2); }
+.toolbar-ghost input:focus, .toolbar-ghost select:focus{ background:var(--surface); border-color:var(--line); outline:none; }
+
+.tx-list{ display:flex; flex-direction:column; }
+.tx-row{ display:flex; align-items:center; gap:11px; padding:9px 2px; border-bottom:1px solid var(--line); }
+.tx-row:last-child{ border-bottom:none; }
+.tx-row-icon{ width:34px; height:34px; border-radius:50%; background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+.tx-row-body{ flex:1; min-width:0; }
+.tx-row-cat{ font-size:13px; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tx-row-date{ font-size:10.5px; color:var(--ink-faint); }
+.tx-row-amt{ font-family:var(--font-mono); font-weight:600; font-size:13.5px; white-space:nowrap; }
+.tx-row-amt.revenu{ color:var(--good); }
 .cat-chip{ display:inline-block; font-size:10.5px; padding:2px 8px; border-radius:99px; background:var(--surface-2); color:var(--ink-soft); }
 .type-chip{ display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:1px 6px; border-radius:5px; }
 .type-chip.revenu{ background:var(--good-soft); color:var(--good); }
@@ -329,7 +359,9 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
   .cat-row{ grid-template-columns:1fr 20px; gap:5px; }
   .cat-bar-wrap, .cat-nums{ grid-column:1; }
   .cat-nums{ justify-content:space-between; }
-  .quick-add{ grid-template-columns:1fr 1fr; }
+  .amount-field input{ font-size:36px; }
+  .cat-date-row{ flex-direction:column; }
+  .cat-date-row input[type=date]{ width:100%; }
   .banner{ flex-direction:column; align-items:flex-start; }
   .tabbar{ display:flex; position:fixed; bottom:0; left:0; right:0; z-index:20; background:var(--surface); border-top:1px solid var(--line); padding:5px 4px calc(5px + env(safe-area-inset-bottom)); justify-content:space-around; }
   .tabbar .nav-btn{ flex-direction:column; gap:2px; font-size:9.5px; padding:5px 4px; border-radius:8px; flex:1; align-items:center; }
@@ -374,11 +406,7 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 
 /* ============ IMPORT / SCAN / VOICE ============ */
 .tool-row{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
-.tool-btn{ display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
-.tool-btn:hover{ background:var(--surface-2); color:var(--ink); }
-.tool-btn.recording{ background:var(--bad-soft); color:var(--bad); border-color:transparent; }
-.import-box{ border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); padding:14px; margin-bottom:14px; }
-.import-box textarea{ width:100%; min-height:90px; font-family:var(--font-mono); font-size:12px; border:1px solid var(--line); border-radius:7px; padding:8px; background:var(--bg); color:var(--ink); resize:vertical; }
+.modal-card textarea{ width:100%; min-height:90px; font-family:var(--font-mono); font-size:12px; border:1px solid var(--line); border-radius:7px; padding:8px; background:var(--bg); color:var(--ink); resize:vertical; }
 .import-rows{ display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:280px; overflow-y:auto; }
 .import-row{ display:grid; grid-template-columns:90px 1fr 130px 90px; gap:8px; align-items:center; font-size:12px; }
 .import-row input, .import-row select{ font:inherit; font-size:12px; padding:5px 7px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
@@ -415,5 +443,5 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
   .sheet-item{ min-height:50px; }
   .tabbar .nav-btn{ min-height:50px; }
   .cat-name{ min-height:38px; display:flex; align-items:center; }
-  .tool-btn{ min-height:42px; }
+  .ghost-icon-btn{ min-width:40px; min-height:40px; }
 }

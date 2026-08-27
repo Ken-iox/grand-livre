@@ -598,8 +598,15 @@ function findDuplicate(date, type, category, amount){
     return !t.needsReview && t.date===date && t.type===type && t.category===category && Math.abs(t.amount-amount) < 0.005;
   });
 }
+function setQaType(type){
+  document.getElementById('qa-type').value = type;
+  document.querySelectorAll('#qa-type-seg .seg-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.type===type); });
+}
 function wireSaisie(){
   document.getElementById('qa-date').value = new Date().toISOString().slice(0,10);
+  document.querySelectorAll('#qa-type-seg .seg-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ setQaType(btn.dataset.type); });
+  });
   document.getElementById('quick-add-form').addEventListener('submit', function(e){
     e.preventDefault();
     var date = document.getElementById('qa-date').value;
@@ -615,6 +622,8 @@ function wireSaisie(){
       if(!ok) return;
       addTransaction({date:date, type:type, category:category, amount:amount, needsReview:false}).then(function(){
         document.getElementById('qa-amt').value = '';
+        document.getElementById('qa-cat').value = '';
+        document.getElementById('qa-amt').focus();
       });
     });
   });
@@ -639,7 +648,7 @@ function renderQuickChips(){
   el.querySelectorAll('[data-chip]').forEach(function(btn){
     btn.addEventListener('click', function(){
       document.getElementById('qa-cat').value = btn.dataset.chip;
-      document.getElementById('qa-type').value = 'variable';
+      setQaType('variable');
       document.getElementById('qa-amt').focus();
       el.querySelectorAll('.quick-chip').forEach(function(c){ c.classList.remove('active'); });
       btn.classList.add('active');
@@ -678,23 +687,25 @@ function renderSaisie(){
   var rows = S.transactions.filter(function(tx){ return !tx.needsReview; })
     .filter(function(tx){ return (m==='all' || tx.date.indexOf(m)===0) && (t==='all' || tx.type===t) && (!q || (tx.category||'').toLowerCase().indexOf(q)!==-1); })
     .sort(function(a,b){ return b.date.localeCompare(a.date) || b.id-a.id; });
-  var body = document.getElementById('tx-body');
+  var list = document.getElementById('tx-list');
   var emptySt = document.getElementById('tx-empty');
-  if(!rows.length){ body.innerHTML=''; emptySt.style.display='flex'; }
+  if(!rows.length){ list.innerHTML=''; emptySt.style.display='flex'; }
   else {
     emptySt.style.display='none';
-    body.innerHTML = rows.map(function(tx){
+    list.innerHTML = rows.map(function(tx){
       var cat = categoryByName(tx.category);
-      var label;
-      if(tx.type==='revenu') label = '💼 '+tx.category;
-      else if(tx.type==='epargne') label = '🐷 '+tx.category;
-      else label = cat ? (cat.icon+' '+cat.name) : tx.category;
-      return '<tr><td>'+fmtDateFR(tx.date)+'</td><td><span class="cat-chip">'+label+'</span></td>'+
-        '<td><span class="type-chip '+tx.type+'">'+({revenu:'Revenu',variable:'Variable',epargne:'Épargne'}[tx.type])+'</span></td>'+
-        '<td class="amt tnum">'+eur(tx.amount)+'</td>'+
-        '<td class="actions"><button class="icon-btn" data-del="'+tx.id+'" title="Supprimer">×</button></td></tr>';
+      var icon, name;
+      if(tx.type==='revenu'){ icon='💼'; name=tx.category; }
+      else if(tx.type==='epargne'){ icon='🐷'; name=tx.category; }
+      else { icon = cat ? cat.icon : '✳️'; name = cat ? cat.name : tx.category; }
+      return '<div class="tx-row" data-tx="'+tx.id+'">'+
+        '<div class="tx-row-icon">'+icon+'</div>'+
+        '<div class="tx-row-body"><div class="tx-row-cat">'+name+'</div><div class="tx-row-date">'+fmtDateFR(tx.date)+'</div></div>'+
+        '<div class="tx-row-amt '+tx.type+'">'+(tx.type==='revenu'?'+':'−')+eur(tx.amount)+'</div>'+
+        '<button class="icon-btn" data-del="'+tx.id+'" title="Supprimer">×</button>'+
+      '</div>';
     }).join('');
-    body.querySelectorAll('[data-del]').forEach(function(btn){
+    list.querySelectorAll('[data-del]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = parseInt(btn.dataset.del,10);
         var tx = S.transactions.find(function(x){ return x.id===id; });
@@ -710,9 +721,8 @@ var pendingImportRows = [];
 function wireSaisieTools(){
   var toggleBtn = document.getElementById('import-toggle-btn');
   var box = document.getElementById('import-box');
-  toggleBtn.addEventListener('click', function(){
-    box.style.display = box.style.display === 'none' ? '' : 'none';
-  });
+  toggleBtn.addEventListener('click', function(){ box.style.display = 'flex'; });
+  box.addEventListener('click', function(e){ if(e.target === box) box.style.display = 'none'; });
   document.getElementById('import-file-input').addEventListener('change', function(e){
     var file = e.target.files[0]; if(!file) return;
     var reader = new FileReader();
@@ -822,7 +832,7 @@ function handleReceiptScan(e){
     if(amount){
       document.getElementById('qa-amt').value = amount.toFixed(2);
       if(guessed) document.getElementById('qa-cat').value = guessed;
-      document.getElementById('qa-type').value = 'variable';
+      setQaType('variable');
       status.textContent = '✓ Montant détecté : '+eur(amount)+' — vérifie avant d’ajouter.';
     } else {
       status.textContent = '⚠️ Montant non détecté automatiquement — saisis-le manuellement.';
@@ -858,7 +868,7 @@ function handleVoiceInput(){
   if(!Rec){ showToast('Reconnaissance vocale non disponible sur ce navigateur.'); return; }
   var rec = new Rec();
   rec.lang = 'fr-FR'; rec.interimResults = false; rec.maxAlternatives = 1;
-  btn.classList.add('recording'); btn.textContent = '🎤 Écoute…';
+  btn.classList.add('recording');
   status.style.display = ''; status.textContent = 'Parle maintenant, ex : "12 euros essence".';
   rec.onresult = function(e){
     var transcript = e.results[0][0].transcript;
@@ -867,7 +877,7 @@ function handleVoiceInput(){
     var guessed = matchCategoryByKeyword(transcript);
     if(amount) document.getElementById('qa-amt').value = amount.toFixed(2);
     if(guessed) document.getElementById('qa-cat').value = guessed;
-    document.getElementById('qa-type').value = 'variable';
+    setQaType('variable');
     status.textContent = amount ? ('✓ Compris : "'+transcript+'" — vérifie avant d’ajouter.') : ('⚠️ Montant non compris dans : "'+transcript+'"');
     setTimeout(function(){ status.style.display = 'none'; }, 6000);
   };
@@ -875,7 +885,7 @@ function handleVoiceInput(){
     status.textContent = '⚠️ Reconnaissance vocale indisponible (connexion requise).';
     setTimeout(function(){ status.style.display = 'none'; }, 6000);
   };
-  rec.onend = function(){ btn.classList.remove('recording'); btn.textContent = '🎤 Dicter une dépense'; };
+  rec.onend = function(){ btn.classList.remove('recording'); };
   rec.start();
 }
 

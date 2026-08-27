@@ -76,7 +76,7 @@
     <!-- ============ SAISIE RAPIDE ============ -->
     <section class="view" id="view-saisie">
       <div class="view-head">
-        <div><h1>Saisie rapide</h1><div class="hint">Un seul flux continu, filtrable — plus besoin d'un onglet par mois.</div></div>
+        <div><h1>Saisie rapide</h1><div class="hint">Ajoute une dépense en quelques secondes.</div></div>
       </div>
 
       <div id="swipe-section">
@@ -85,62 +85,71 @@
         <div class="swipe-empty" id="swipe-empty" style="display:none;">Tout est trié ✓</div>
       </div>
 
-      <div class="tool-row">
-        <button class="tool-btn" type="button" id="scan-btn">📷 Scanner un reçu</button>
-        <button class="tool-btn" type="button" id="voice-btn">🎤 Dicter une dépense</button>
-        <button class="tool-btn" type="button" id="import-toggle-btn">📄 Importer un relevé (CSV)</button>
-        <input type="file" id="scan-file-input" accept="image/*" capture="environment" style="display:none;">
+      <div class="add-card">
+        <div class="add-card-tools">
+          <button class="ghost-icon-btn" type="button" id="scan-btn" title="Scanner un reçu">📷</button>
+          <button class="ghost-icon-btn" type="button" id="voice-btn" title="Dicter une dépense">🎤</button>
+          <button class="ghost-icon-btn" type="button" id="import-toggle-btn" title="Importer un relevé CSV">📄</button>
+          <input type="file" id="scan-file-input" accept="image/*" capture="environment" style="display:none;">
+        </div>
+        <div id="scan-status" class="scan-status" style="display:none;"></div>
+
+        <form id="quick-add-form">
+          <div class="amount-field">
+            <span class="amount-suffix">€</span>
+            <input type="number" step="0.01" min="0" id="qa-amt" placeholder="0" required>
+          </div>
+
+          <div class="segmented" id="qa-type-seg">
+            <button type="button" class="seg-btn active" data-type="variable">Dépense</button>
+            <button type="button" class="seg-btn" data-type="revenu">Revenu</button>
+            <button type="button" class="seg-btn" data-type="epargne">Épargne</button>
+          </div>
+          <input type="hidden" id="qa-type" value="variable">
+
+          <div class="quick-chips" id="quick-chips"></div>
+
+          <div class="cat-date-row">
+            <input type="text" id="qa-cat" list="qa-cat-list" placeholder="Catégorie / libellé…" required><datalist id="qa-cat-list"></datalist>
+            <input type="date" id="qa-date" required>
+          </div>
+
+          <button class="btn-primary btn-block" type="submit">Ajouter</button>
+        </form>
       </div>
-      <div id="scan-status" style="display:none; margin-bottom:12px; font-size:12px; color:var(--ink-faint);"></div>
 
-      <div class="import-box" id="import-box" style="display:none;">
-        <div class="field" style="margin-bottom:8px;"><label>Colle ton relevé (CSV) ou choisis un fichier</label>
-          <textarea id="import-textarea" placeholder="01/07/2026;CARREFOUR CB;-45,20&#10;02/07/2026;VIR SALAIRE;1500,00"></textarea>
-        </div>
-        <div class="tool-row" style="margin:0;">
-          <input type="file" id="import-file-input" accept=".csv,text/csv,text/plain">
-          <button class="btn-secondary" type="button" id="import-parse-btn">Analyser</button>
-        </div>
-        <div class="import-rows" id="import-rows"></div>
-        <div class="modal-actions" id="import-actions" style="display:none;">
-          <button class="btn-secondary" type="button" id="import-cancel-btn">Annuler</button>
-          <button class="btn-primary" type="button" id="import-confirm-btn">Importer</button>
+      <div class="modal-overlay" id="import-box" style="display:none;">
+        <div class="modal-card" style="max-width:460px;">
+          <h2>Importer un relevé bancaire</h2>
+          <div class="modal-field"><label>Colle ton relevé (CSV) ou choisis un fichier</label>
+            <textarea id="import-textarea" placeholder="01/07/2026;CARREFOUR CB;-45,20&#10;02/07/2026;VIR SALAIRE;1500,00"></textarea>
+          </div>
+          <div class="tool-row" style="margin:0 0 8px;">
+            <input type="file" id="import-file-input" accept=".csv,text/csv,text/plain">
+            <button class="btn-secondary" type="button" id="import-parse-btn">Analyser</button>
+          </div>
+          <div class="import-rows" id="import-rows"></div>
+          <div class="modal-actions" id="import-actions" style="display:none;">
+            <button class="btn-secondary" type="button" id="import-cancel-btn">Annuler</button>
+            <button class="btn-primary" type="button" id="import-confirm-btn">Importer</button>
+          </div>
         </div>
       </div>
 
-      <div class="quick-chips" id="quick-chips"></div>
-      <form class="quick-add" id="quick-add-form">
-        <div class="field"><label>Date</label><input type="date" id="qa-date" required></div>
-        <div class="field"><label>Catégorie / libellé</label><input type="text" id="qa-cat" list="qa-cat-list" placeholder="ex: Courses, Salaire…" required><datalist id="qa-cat-list"></datalist></div>
-        <div class="field"><label>Type</label><select id="qa-type">
-          <option value="variable">Variable</option>
-          <option value="revenu">Revenu</option>
-          <option value="epargne">Épargne</option>
-        </select></div>
-        <div class="field"><label>Montant (€)</label><input type="number" step="0.01" min="0" id="qa-amt" placeholder="0,00" required></div>
-        <button class="btn-primary" type="submit">Ajouter</button>
-      </form>
-
-      <div class="toolbar">
-        <span class="tb-label">Filtrer</span>
-        <input type="text" id="tx-search" placeholder="Rechercher une catégorie…">
+      <div class="toolbar toolbar-ghost">
+        <input type="text" id="tx-search" placeholder="Rechercher…">
         <select id="tx-month"></select>
         <select id="tx-type">
           <option value="all">Tous les types</option>
-          <option value="variable">Variable</option>
+          <option value="variable">Dépense</option>
           <option value="revenu">Revenu</option>
           <option value="epargne">Épargne</option>
         </select>
       </div>
 
-      <div class="container-x">
-        <table class="tx-table">
-          <thead><tr><th>Date</th><th>Catégorie</th><th>Type</th><th style="text-align:right;">Montant</th><th></th></tr></thead>
-          <tbody id="tx-body"></tbody>
-        </table>
-        <div class="empty-state" id="tx-empty" style="display:none; margin-top:8px;">
-          <div class="ic">◌</div><div class="t">Aucun résultat</div><div class="d">Essaie un autre mois, type ou terme de recherche.</div>
-        </div>
+      <div class="tx-list" id="tx-list"></div>
+      <div class="empty-state" id="tx-empty" style="display:none; margin-top:8px;">
+        <div class="ic">◌</div><div class="t">Aucun résultat</div><div class="d">Essaie un autre mois, type ou terme de recherche.</div>
       </div>
     </section>
 
