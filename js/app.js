@@ -1328,7 +1328,7 @@ function renderAnnuel(){
   function pt(i,v){ var step=(w-padL-padR)/11; return [padL+i*step, h-padB-(v/max)*(h-padT-padB)]; }
   var revPts=[], depPts=[];
   aggs.forEach(function(a,i){ if(a){ revPts.push(pt(i,a.revenus)); depPts.push(pt(i,a.depenses)); } });
-  var revColor = cssVar('accent-soft-line'), depColor = cssVar('accent');
+  var revColor = cssVar('accent'), depColor = cssVar('bad');
   var svg = '';
   if(revPts.length>1){
     var revD = smoothPath(revPts), depD = smoothPath(depPts);

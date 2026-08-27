@@ -7,7 +7,7 @@
   --surface-2:#E9EBE4;
   --ink:#1B231F;
   --ink-soft:#5C6A61;
-  --ink-faint:#8B978E;
+  --ink-faint:#677069;
   --line:#DCE0D6;
   --line-strong:#C7CDBF;
   --accent:#276761;
@@ -16,7 +16,7 @@
   --accent-soft-line:#BFD8D3;
   --good:#3F7D4A;
   --good-soft:#E4F0E3;
-  --warn:#A9762A;
+  --warn:#916524;
   --warn-soft:#F5E9D4;
   --bad:#B3473B;
   --bad-soft:#F6E2DE;
@@ -119,7 +119,7 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 .section-title .link{ font-size:10.5px; text-transform:none; letter-spacing:0; color:var(--accent); font-weight:600; cursor:pointer; background:none; border:none; padding:0; }
 
 /* reste à vivre banner */
-.banner{ display:flex; align-items:center; gap:20px; padding:14px 18px; margin-bottom:10px; }
+.banner{ display:flex; align-items:center; flex-wrap:wrap; gap:20px; padding:14px 18px; margin-bottom:10px; }
 .banner .big{ flex-shrink:0; }
 .banner .big .stat-value{ font-size:26px; }
 .banner .big .stat-label{ font-size:10.5px; }
@@ -284,7 +284,7 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 .example-flag::before{ content:"◌"; }
 .example-flag.warn-flag{ color:var(--warn); font-style:normal; }
 .example-flag.warn-flag::before{ content:"⚠"; }
-.hero-warn{ display:block; text-align:left; width:100%; font-size:11px; color:var(--warn); background:none; border:none; cursor:pointer; padding:0; margin-top:10px; text-decoration:underline; font-family:inherit; }
+.hero-warn{ display:block; text-align:left; width:100%; flex-basis:100%; font-size:11px; color:var(--warn); background:none; border:none; cursor:pointer; padding:0; margin-top:10px; text-decoration:underline; font-family:inherit; }
 .fund-row{ display:grid; grid-template-columns:1fr 90px 1fr 90px 20px; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--line); }
 .fund-row:last-child{ border-bottom:none; }
 .fund-name{ font-size:12.5px; font-weight:500; }
