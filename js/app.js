@@ -1256,6 +1256,7 @@ function wireSwipe(face){
       setTimeout(function(){
         if(accepted){
           var tx = S.transactions.find(function(x){ return x.id===txId; });
+          if(!S.categories.length){ showToast('Crée d’abord une catégorie dans Paramètres.'); renderSaisie(); return; }
           openModal({
             title: 'Quelle catégorie ?',
             fields: [{key:'category', label:(tx.note||tx.category)+' — '+eur(tx.amount), type:'select', value:'',
