@@ -931,6 +931,8 @@ function wireSaisieTools(){
 
   document.getElementById('scan-btn').addEventListener('click', function(){ document.getElementById('scan-file-input').click(); });
   document.getElementById('scan-file-input').addEventListener('change', handleReceiptScan);
+  document.getElementById('screenshot-btn').addEventListener('click', function(){ document.getElementById('screenshot-file-input').click(); });
+  document.getElementById('screenshot-file-input').addEventListener('change', handleScreenshotScan);
   document.getElementById('voice-btn').addEventListener('click', handleVoiceInput);
 }
 
@@ -1039,6 +1041,76 @@ function extractAmountFromReceipt(text){
   }
   if(!candidates.length) return null;
   return totalLine ? candidates[0] : Math.max.apply(null, candidates);
+}
+
+/* ============ SCAN D’ÉCRAN (plusieurs dépenses en une fois) ============ */
+function handleScreenshotScan(e){
+  var file = e.target.files[0]; if(!file) return;
+  var status = document.getElementById('scan-status');
+  status.style.display = '';
+  status.textContent = '📥 Chargement du lecteur (première fois seulement)…';
+  loadTesseract().then(function(){
+    status.textContent = '🔎 Lecture de l’écran en cours…';
+    return window.Tesseract.recognize(file, 'fra');
+  }).then(function(result){
+    var rows = parseScreenshotText(result.data.text || '');
+    status.style.display = 'none';
+    if(!rows.length){
+      showToast('Aucune dépense reconnue sur cet écran — vérifie la photo.');
+      return;
+    }
+    pendingImportRows = rows;
+    renderImportRows();
+    document.getElementById('import-box').style.display = 'flex';
+  }).catch(function(){
+    status.textContent = '⚠️ Le lecteur n’a pas pu se charger (connexion nécessaire au premier scan).';
+    setTimeout(function(){ status.style.display = 'none'; }, 6000);
+  });
+  e.target.value = '';
+}
+var MONTHS_FR = {janvier:1,'février':2,fevrier:2,mars:3,avril:4,mai:5,juin:6,juillet:7,'août':8,aout:8,septembre:9,octobre:10,novembre:11,'décembre':12,decembre:12};
+function parseFrenchDateLine(line, todayIso){
+  var l = line.toLowerCase().trim();
+  if(/^aujourd.?hui\b/.test(l)) return todayIso;
+  if(/^hier\b/.test(l)){ var d = new Date(todayIso); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+  var m = l.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if(m){
+    var day=+m[1], month=+m[2], year = m[3] ? (m[3].length===2?2000+ +m[3]:+m[3]) : new Date(todayIso).getFullYear();
+    if(month>=1 && month<=12 && day>=1 && day<=31) return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  }
+  var m2 = l.match(/(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)/);
+  if(m2){
+    var day2=+m2[1], month2=MONTHS_FR[m2[2]], year2=new Date(todayIso).getFullYear();
+    return year2+'-'+String(month2).padStart(2,'0')+'-'+String(day2).padStart(2,'0');
+  }
+  return null;
+}
+function parseScreenshotText(text){
+  var todayIso = new Date().toISOString().slice(0,10);
+  var lines = text.split('\n').map(function(l){ return l.trim(); }).filter(Boolean);
+  var currentDate = todayIso;
+  var pendingLabel = ''; // ligne marchand quand elle précède le montant sur une ligne séparée
+  var rows = [];
+  lines.forEach(function(line){
+    var maybeDate = parseFrenchDateLine(line, todayIso);
+    if(maybeDate){ currentDate = maybeDate; pendingLabel = ''; return; }
+    if(/solde|balance|disponible|total du (mois|jour)/i.test(line)) { pendingLabel = ''; return; }
+    var amtMatch = line.match(/([+-]\s?\d{1,4}[.,]\d{2}|\d{1,4}[.,]\d{2})\s?€?/);
+    if(!amtMatch){ pendingLabel = line; return; }
+    var raw = amtMatch[1].replace(/\s/g,'');
+    var sign = raw.charAt(0) === '+' ? 1 : -1;
+    var value = parseFloat(raw.replace(/[+-]/,'').replace(',','.'));
+    if(isNaN(value) || value === 0) return;
+    var amount = sign * value;
+    var inlineLabel = line.replace(amtMatch[0], '').replace(/€/g,'').trim().replace(/\s{2,}/g,' ');
+    var label = inlineLabel || pendingLabel || 'Dépense';
+    pendingLabel = '';
+    var type = amount > 0 ? 'revenu' : 'variable';
+    var guessed = matchCategoryByKeyword(label);
+    var needsReview = type === 'variable' && !guessed;
+    rows.push({date:currentDate, label:label, amount:amount, type:type, category: guessed || label, needsReview:needsReview, include:true});
+  });
+  return rows;
 }
 
 /* ============ SAISIE VOCALE (nécessite une connexion) ============ */
