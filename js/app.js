@@ -58,6 +58,9 @@ function openModal(opts){
           f.options.map(function(o){ return '<option value="'+esc(o.value)+'"'+(o.value===f.value?' selected':'')+'>'+esc(o.label)+'</option>'; }).join('')+
           '</select></div>';
       }
+      if(f.type === 'textarea'){
+        return '<div class="modal-field"><label>'+f.label+'</label><textarea data-mf="'+f.key+'" rows="'+(f.rows||6)+'" placeholder="'+esc(f.placeholder||'')+'">'+esc(f.value||'')+'</textarea></div>';
+      }
       if(f.type === 'emoji'){
         return '<div class="modal-field"><label>'+f.label+'</label>'+
           '<input type="hidden" data-mf="'+f.key+'" value="'+esc(f.value||'')+'">'+
@@ -80,7 +83,7 @@ function openModal(opts){
         '</div>'+
       '</div>';
     root.appendChild(overlay);
-    var firstInput = overlay.querySelector('input[type="text"][data-mf], input[type="number"][data-mf]') || overlay.querySelector('[data-mf]');
+    var firstInput = overlay.querySelector('input[type="text"][data-mf], input[type="number"][data-mf], textarea[data-mf]') || overlay.querySelector('[data-mf]');
     if(firstInput) firstInput.focus();
     overlay.querySelectorAll('.emoji-opt').forEach(function(btn){
       btn.addEventListener('click', function(){
@@ -1371,6 +1374,33 @@ function wireBudgets(){
       db.add('categories', {name:v.name, icon:v.icon||'✳️', monthlyBudget:v.monthlyBudget||0}).then(function(c){ S.categories.push(c); renderBudgets(); renderSaisie(); });
     });
   });
+  document.getElementById('cat-import-btn').addEventListener('click', function(){
+    openModal({
+      title:'Importer des catégories',
+      submitLabel:'Importer',
+      fields:[{key:'bulk', label:'Une par ligne : Nom;Budget mensuel', type:'textarea', rows:10,
+        placeholder:'Courses;200\nEssence;280\nRestaurant;50'}]
+    }).then(function(v){
+      if(!v || !v.bulk) return;
+      var existingNames = S.categories.map(function(c){ return c.name.toLowerCase(); });
+      var rows = v.bulk.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean).map(function(line){
+        var parts = line.split(/[;\t]/).map(function(p){ return p.trim(); });
+        var name = parts[0];
+        var budget = parseFloat((parts[1]||'0').replace(',','.').replace('€','').trim());
+        return {name:name, monthlyBudget:isNaN(budget)?0:budget};
+      }).filter(function(r){ return r.name; });
+      var toAdd = rows.filter(function(r){ return existingNames.indexOf(r.name.toLowerCase()) === -1; });
+      var skipped = rows.length - toAdd.length;
+      Promise.all(toAdd.map(function(r){ return db.add('categories', {name:r.name, icon:guessCategoryIcon(r.name), monthlyBudget:r.monthlyBudget}); }))
+        .then(function(created){
+          created.forEach(function(c){ S.categories.push(c); });
+          var msg = created.length+' catégorie'+(created.length>1?'s':'')+' créée'+(created.length>1?'s':'')+'.';
+          if(skipped) msg += ' ('+skipped+' déjà existante'+(skipped>1?'s':'')+', ignorée'+(skipped>1?'s':'')+'.)';
+          showToast(msg);
+          renderBudgets(); renderSaisie();
+        });
+    });
+  });
 }
 function renderBudgets(){
   document.getElementById('budgets-hint').textContent = 'Cumul réel '+CURRENT_YEAR+' vs budget.';
@@ -1939,6 +1969,19 @@ function importBackupFile(file){
   }).catch(function(){
     showToast('Fichier invalide — vérifie que c’est bien un export Grand Livre.');
   });
+}
+
+var CATEGORY_ICON_HINTS = [
+  ['courses','🛒'], ['essence','⛽'], ['voiture','🚗'], ['restaurant','🍽️'], ['travaux','🔧'], ['entretien','🔧'],
+  ['shopping','🛍️'], ['crypto','₿'], ['musique','🎵'], ['psychologue','🧠'], ['chat','🐱'],
+  ['cigarette','💨'], ['tabac','🚬'], ['coiffeur','💇'], ['amende','🅿️'], ['stationnement','🅿️'],
+  ['medecin','🩺'], ['poste','📦'], ['colis','📦'], ['cinema','🎬'], ['cadeau','🎁'],
+  ['sortie','🎉'], ['loisir','🎉'], ['sante','🩺'], ['abonnement','📱']
+];
+function guessCategoryIcon(name){
+  var n = normalizeText(name);
+  var hit = CATEGORY_ICON_HINTS.find(function(h){ return n.indexOf(h[0]) !== -1; });
+  return hit ? hit[1] : '✳️';
 }
 
 /* ============ ASSISTANT DE PREMIER LANCEMENT ============ */
