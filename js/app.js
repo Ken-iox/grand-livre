@@ -190,6 +190,7 @@ seedIfEmpty().then(loadAll).then(function(){
   var action = new URLSearchParams(window.location.search).get('action');
   if(action === 'add'){ setView('saisie'); setTimeout(function(){ document.getElementById('qa-amt').focus(); }, 150); }
   else if(action === 'scan'){ setView('saisie'); setTimeout(function(){ document.getElementById('scan-file-input').click(); }, 150); }
+  else if(action === 'screenshot'){ setView('saisie'); setTimeout(function(){ document.getElementById('screenshot-file-input').click(); }, 150); }
 });
 
 window.addEventListener('beforeinstallprompt', function(e){
@@ -221,6 +222,7 @@ function loadAll(){
     S.categories = r[0]; S.fixedCharges = r[1]; S.transactions = r[2];
     S.patrimoineAccounts = r[3]; S.sinkingFunds = r[4];
     S.thresholds = (r[5]&&r[5].value) || {}; S.automations = (r[6]&&r[6].value) || {};
+    if(S.automations.unusualSpend === undefined) S.automations.unusualSpend = true; // nouvelle automatisation, activée par défaut même pour les profils déjà initialisés
     S.calStartBalance = (r[7]&&r[7].value) != null ? r[7].value : 1200;
     S.loan = (r[8]&&r[8].value) || {}; S.monthlyHistory = (r[9]&&r[9].value) || {};
     S.chargePayments = (r[10]&&r[10].value) || {};
@@ -418,6 +420,8 @@ function renderDashboard(){
   var isCurrent = selectedMonth === CURRENT_MONTH;
   var today = new Date();
   var streak = isCurrent ? variableSpendStreak() : 0;
+  var joursRestants = isCurrent ? Math.max(1, daysInMonth(selectedMonth) - today.getDate() + 1) : 0;
+  var resteSemaine = isCurrent ? (resteVar/joursRestants)*7 : 0;
 
   var seriesRange = last6Months(selectedMonth);
   var revSeries = seriesRange.map(function(m){ var a = monthAggregate(m); return a ? a.revenus : 0; });
@@ -473,6 +477,7 @@ function renderDashboard(){
       diagChipHtml('Charges fixes', pct(d.fixedPct), d.fixed) +
       diagChipHtml('Dép. variables', pct(d.variablePct), d.variable) +
       diagChipHtml('Budget variable', eur(d.variableSpent)+' / '+eur(effectiveVarBudget), resteVar>=0?{cls:'good',label:'Sous budget'}:{cls:'bad',label:'Dépassé'}) +
+      (isCurrent ? diagChipHtml('Repère hebdo', (resteVar>=0?eur(resteSemaine)+' / sem.':'—'), resteVar>=0?{cls:'good',label:'À tenir'}:{cls:'bad',label:'Dépassé'}) : '') +
     '</div>'+
     (isCurrent && streak >= 2 ? '<div class="streak-badge">🔥 '+streak+' jours sous ton budget variable quotidien</div>' : '') +
     '<div class="grid cols-3" style="margin-top:18px;">'+
@@ -656,7 +661,28 @@ function computeAlerts(mk){
     }
   }
   if(d.savings.cls === 'good') list.push({cls:'good', title:'Taux d’épargne au-dessus du seuil', desc:pct(d.savingsPct)+' des revenus.', meta:pct(d.savingsPct)});
+  if(A.unusualSpend){
+    detectUnusualExpenses(mk).forEach(function(u){
+      var cat = categoryByName(u.tx.category);
+      list.push({cls:'warn', title:'Dépense inhabituelle', desc:(cat?cat.icon+' ':'')+u.tx.category+' à '+eur(u.tx.amount)+' — habituellement autour de '+eur(u.avg)+'.', meta:eur(u.tx.amount)});
+    });
+  }
   return list;
+}
+function detectUnusualExpenses(mk){
+  var since = new Date(); since.setMonth(since.getMonth()-6);
+  var sinceStr = since.toISOString().slice(0,10);
+  var results = [];
+  txForMonth(mk).filter(function(t){ return t.type==='variable'; }).forEach(function(t){
+    var history = S.transactions.filter(function(h){
+      return !h.needsReview && h.type==='variable' && h.category===t.category && h.date>=sinceStr && h.date<t.date;
+    });
+    if(history.length < 3) return;
+    var avg = history.reduce(function(a,h){ return a+h.amount; },0) / history.length;
+    if(avg < 5) return; // catégorie trop marginale pour que la comparaison soit parlante
+    if(t.amount > avg*1.8) results.push({tx:t, avg:avg});
+  });
+  return results;
 }
 function alertRowHtml(a){
   return '<div class="alert-item '+a.cls+'"><span class="ic">●</span><div class="alert-body"><div class="alert-title">'+esc(a.title)+'</div><div class="alert-desc">'+esc(a.desc)+'</div></div><div class="alert-meta">'+esc(a.meta)+'</div></div>';
@@ -826,13 +852,14 @@ function renderSaisie(){
   if(review.length){
     stack.style.display = '';
     stack.innerHTML = review.map(function(t,i){
-      var sugCat = categoryByName(t.suggestedCategory);
-      var sugLabel = sugCat ? (esc(sugCat.icon)+' '+esc(sugCat.name)) : '✳️ Autre';
+      var guess = matchCategoryByKeyword(t.note || t.category);
+      var sugCat = categoryByName(guess);
+      var sugLabel = sugCat ? (esc(sugCat.icon)+' '+esc(sugCat.name)) : 'à choisir';
       return '<div class="swipe-card" style="z-index:'+(review.length-i)+';" data-tx-id="'+t.id+'">'+
-        '<div class="swipe-bg left">↩ Plus tard</div><div class="swipe-bg right">✓ Accepter</div>'+
+        '<div class="swipe-bg left">↩ Plus tard</div><div class="swipe-bg right">✓ Catégoriser</div>'+
         '<div class="swipe-face"><div class="swipe-amt tnum">'+eur(t.amount)+'</div>'+
         '<div class="swipe-desc">'+esc(t.note)+' · '+fmtDateFR(t.date)+'</div>'+
-        '<div class="swipe-suggest">Suggestion : <b>'+sugLabel+'</b></div></div></div>';
+        '<div class="swipe-suggest">Catégorie : <b>'+sugLabel+'</b></div></div></div>';
     }).join('');
     stack.querySelectorAll('.swipe-face').forEach(wireSwipe);
     emptyMsg.style.display = 'none';
@@ -947,7 +974,7 @@ function wireSaisieTools(){
   document.getElementById('voice-btn').addEventListener('click', handleVoiceInput);
 }
 
-function normalizeHeaderCell(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
+function normalizeText(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
 function findHeaderIndex(headerCols, candidates){
   for(var i=0;i<candidates.length;i++){
     var idx = headerCols.indexOf(candidates[i]);
@@ -960,11 +987,16 @@ function isoFromDateCol(dateCol){
     ? dateCol.slice(6,10)+'-'+dateCol.slice(3,5)+'-'+dateCol.slice(0,2)
     : dateCol;
 }
+var INTERNAL_TRANSFER_HINTS = ['vir. vers compte','virement vers compte','virement interne','vers mon compte','entre mes comptes','vir permanent vers moi','de compte a compte','moi-meme'];
+function isInternalTransferLabel(label){
+  var l = normalizeText(label);
+  return INTERNAL_TRANSFER_HINTS.some(function(h){ return l.indexOf(h) !== -1; });
+}
 function parseCsv(text){
   var lines = text.replace(/^﻿/,'').split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
   if(!lines.length) return [];
   var delim = text.indexOf(';') !== -1 ? ';' : ',';
-  var headerCols = lines[0].split(delim).map(function(c){ return normalizeHeaderCell(c.replace(/^"|"$/g,'')); });
+  var headerCols = lines[0].split(delim).map(function(c){ return normalizeText(c.replace(/^"|"$/g,'')); });
   var hDate = findHeaderIndex(headerCols, ['date operation','date de comptabilisation','date valeur','date de valeur','date']);
   var hLabel = findHeaderIndex(headerCols, ['libelle simplifie','libelle operation','libelle','description']);
   var hDebit = findHeaderIndex(headerCols, ['debit']);
@@ -982,6 +1014,8 @@ function parseCsv(text){
       var dateRaw = cols[hDate];
       if(!/^\d{2}\/\d{2}\/\d{4}$/.test(dateRaw) && !/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return;
       if(hCategorie !== -1 && /exclue/i.test(cols[hCategorie]||'')) return; // virement interne, déjà écarté par la banque elle-même
+      var label = (hLabel!==-1 ? cols[hLabel] : '') || cols.join(' ');
+      if(isInternalTransferLabel(label)) return; // virement entre mes propres comptes, pas une vraie dépense/revenu
       var amountCol = null;
       var debitRaw = hDebit!==-1 ? cols[hDebit] : '';
       var creditRaw = hCredit!==-1 ? cols[hCredit] : '';
@@ -989,7 +1023,6 @@ function parseCsv(text){
       if(amountCol === null && creditRaw){ var c = parseFloat(creditRaw.replace(/\s/g,'').replace(',','.')); if(!isNaN(c)) amountCol = c; }
       if(amountCol === null && hMontant!==-1){ var mo = parseFloat((cols[hMontant]||'').replace(/\s/g,'').replace(',','.')); if(!isNaN(mo)) amountCol = mo; }
       if(amountCol === null) return;
-      var label = (hLabel!==-1 ? cols[hLabel] : '') || cols.join(' ');
       var guessed = matchCategoryByKeyword(label);
       var type = amountCol > 0 ? 'revenu' : 'variable';
       var needsReview = type === 'variable' && !guessed;
@@ -1010,6 +1043,7 @@ function parseCsv(text){
     }
     if(dateCol == null || amountCol == null) return;
     var label = cols.find(function(c){ return c !== dateCol && isNaN(parseFloat(c.replace(',','.'))); }) || cols.join(' ');
+    if(isInternalTransferLabel(label)) return; // virement entre mes propres comptes, pas une vraie dépense/revenu
     var guessed = matchCategoryByKeyword(label);
     var type = amountCol > 0 ? 'revenu' : 'variable';
     var needsReview = type === 'variable' && !guessed;
@@ -1161,6 +1195,7 @@ function parseScreenshotText(text){
     var inlineLabel = line.replace(amtMatch[0], '').replace(/€/g,'').trim().replace(/\s{2,}/g,' ');
     var label = inlineLabel || pendingLabel || 'Dépense';
     pendingLabel = '';
+    if(isInternalTransferLabel(label)) return; // virement entre mes propres comptes, pas une vraie dépense/revenu
     var type = amount > 0 ? 'revenu' : 'variable';
     var guessed = matchCategoryByKeyword(label);
     var needsReview = type === 'variable' && !guessed;
@@ -1221,9 +1256,16 @@ function wireSwipe(face){
       setTimeout(function(){
         if(accepted){
           var tx = S.transactions.find(function(x){ return x.id===txId; });
-          var cat = categoryByName(tx.suggestedCategory) || S.categories[0];
-          tx.needsReview = false; tx.type = 'variable'; tx.category = cat ? cat.name : tx.suggestedCategory;
-          db.put('transactions', tx).then(function(){ renderSaisie(); renderDashboard(); renderAlerts(); renderBudgets(); });
+          openModal({
+            title: 'Quelle catégorie ?',
+            fields: [{key:'category', label:(tx.note||tx.category)+' — '+eur(tx.amount), type:'select', value:'',
+              options: S.categories.map(function(c){ return {value:c.name, label:c.icon+' '+c.name}; })}]
+          }).then(function(v){
+            if(!v || !v.category){ renderSaisie(); return; }
+            tx.needsReview = false; tx.type = 'variable'; tx.category = v.category;
+            learnCategoryRule(tx.note || tx.category, v.category);
+            db.put('transactions', tx).then(function(){ renderSaisie(); renderDashboard(); renderAlerts(); renderBudgets(); });
+          });
         } else {
           card.remove();
           if(!document.querySelector('.swipe-card')){ document.getElementById('swipe-stack').style.display='none'; document.getElementById('swipe-empty').style.display='flex'; }
@@ -1605,7 +1647,8 @@ var AUTO_DEFS = [
   {key:'dueReminder', title:'Rappel avant échéance', desc:'Notifier 3 jours avant chaque charge fixe (loyer, assurances, abonnements).'},
   {key:'uncatDetect', title:'Détection des virements non catégorisés', desc:'Repérer les mouvements sans catégorie assignée et les proposer à trier (glisser-déposer).'},
   {key:'rollover', title:'Report du surplus non dépensé', desc:'Le budget non utilisé le mois dernier s’ajoute au budget variable de ce mois-ci.'},
-  {key:'weeklyDigest', title:'Résumé hebdomadaire', desc:'Un résumé (solde, catégories à surveiller) s’affiche en haut des Alertes à chaque ouverture, le lundi.'}
+  {key:'weeklyDigest', title:'Résumé hebdomadaire', desc:'Un résumé (solde, catégories à surveiller) s’affiche en haut des Alertes à chaque ouverture, le lundi.'},
+  {key:'unusualSpend', title:'Dépense inhabituelle', desc:'Repérer une dépense nettement au-dessus de la moyenne habituelle de sa catégorie.'}
 ];
 function renderAutomations(){
   document.getElementById('auto-list').innerHTML = AUTO_DEFS.map(function(def){
@@ -1723,6 +1766,13 @@ function matchCategoryByKeyword(text){
   var low = text.toLowerCase();
   var hit = S.categoryRules.find(function(r){ return low.indexOf(r.keyword) !== -1; });
   return hit ? hit.category : null;
+}
+function learnCategoryRule(label, category){
+  if(!label) return;
+  var keyword = label.toLowerCase().trim();
+  if(!keyword || matchCategoryByKeyword(keyword)) return; // déjà couvert par une règle existante
+  S.categoryRules.push({keyword:keyword, category:category});
+  db.put('settings', {key:'categoryRules', value:S.categoryRules});
 }
 
 /* ============ VERROUILLAGE PAR CODE ============ */

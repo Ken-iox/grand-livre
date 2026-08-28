@@ -80,7 +80,7 @@ export var db = {
 // Seuils et réglages génériques uniquement — aucune donnée personnelle.
 // Catégories, charges fixes, transactions, comptes et prêt se créent depuis l'app (Paramètres / Patrimoine / Saisie rapide).
 var DEFAULT_THRESHOLDS = { savingsLow:12, savingsGood:20, fixedGood:40, fixedMax:50, variableGood:8, variableMax:15, comfortMargin:150 };
-var DEFAULT_AUTOMATIONS = { overspendAlert:true, dueReminder:true, uncatDetect:true, rollover:false, weeklyDigest:false };
+var DEFAULT_AUTOMATIONS = { overspendAlert:true, dueReminder:true, uncatDetect:true, rollover:false, weeklyDigest:false, unusualSpend:true };
 
 export function seedIfEmpty(){
   return db.get('settings', 'seeded').then(function(flag){

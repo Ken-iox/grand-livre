@@ -24,6 +24,12 @@
       "short_name": "Scanner",
       "url": "./index.html?action=scan",
       "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Scanner un écran de dépenses",
+      "short_name": "Écran",
+      "url": "./index.html?action=screenshot",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }
