@@ -754,6 +754,7 @@ function setQaType(type){
 }
 function wireSaisie(){
   document.getElementById('qa-date').value = new Date().toISOString().slice(0,10);
+  try { document.getElementById('qa-account').value = localStorage.getItem('gl-last-account') || ''; } catch(e){}
   document.querySelectorAll('#qa-type-seg .seg-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ setQaType(btn.dataset.type); });
   });
@@ -763,6 +764,7 @@ function wireSaisie(){
     var category = document.getElementById('qa-cat').value;
     var type = document.getElementById('qa-type').value;
     var amount = parseFloat(document.getElementById('qa-amt').value);
+    var account = document.getElementById('qa-account').value.trim();
     if(!date || !amount || amount <= 0) return;
     var dup = findDuplicate(date, type, category, amount);
     var proceed = dup
@@ -770,14 +772,15 @@ function wireSaisie(){
       : Promise.resolve(true);
     proceed.then(function(ok){
       if(!ok) return;
-      addTransaction({date:date, type:type, category:category, amount:amount, needsReview:false}).then(function(){
+      addTransaction({date:date, type:type, category:category, amount:amount, needsReview:false, account: account || undefined}).then(function(){
+        try { if(account) localStorage.setItem('gl-last-account', account); } catch(e){}
         document.getElementById('qa-amt').value = '';
         document.getElementById('qa-cat').value = '';
         document.getElementById('qa-amt').focus();
       });
     });
   });
-  ['tx-search','tx-month','tx-type'].forEach(function(id){
+  ['tx-search','tx-month','tx-type','tx-account'].forEach(function(id){
     document.getElementById(id).addEventListener('input', renderSaisie);
     document.getElementById(id).addEventListener('change', renderSaisie);
   });
@@ -807,6 +810,12 @@ function renderQuickChips(){
 }
 function renderSaisie(){
   document.getElementById('qa-cat-list').innerHTML = S.categories.map(function(c){ return '<option value="'+esc(c.name)+'">'; }).join('');
+  var knownAccounts = Array.from(new Set(['Compte courant','Compte commun'].concat(S.transactions.map(function(t){ return t.account; }).filter(Boolean))));
+  document.getElementById('qa-account-list').innerHTML = knownAccounts.map(function(a){ return '<option value="'+esc(a)+'">'; }).join('');
+  var accEl = document.getElementById('tx-account');
+  var accCur = accEl.value || 'all';
+  accEl.innerHTML = '<option value="all">Tous les comptes</option>' + knownAccounts.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+  accEl.value = (accCur === 'all' || knownAccounts.indexOf(accCur) >= 0) ? accCur : 'all';
   renderQuickChips();
 
   // swipe stack
@@ -834,8 +843,9 @@ function renderSaisie(){
   var q = document.getElementById('tx-search').value.trim().toLowerCase();
   var m = document.getElementById('tx-month').value;
   var t = document.getElementById('tx-type').value;
+  var acc = document.getElementById('tx-account').value;
   var rows = S.transactions.filter(function(tx){ return !tx.needsReview; })
-    .filter(function(tx){ return (m==='all' || tx.date.indexOf(m)===0) && (t==='all' || tx.type===t) && (!q || (tx.category||'').toLowerCase().indexOf(q)!==-1); })
+    .filter(function(tx){ return (m==='all' || tx.date.indexOf(m)===0) && (t==='all' || tx.type===t) && (acc==='all' || tx.account===acc) && (!q || (tx.category||'').toLowerCase().indexOf(q)!==-1); })
     .sort(function(a,b){ return b.date.localeCompare(a.date) || b.id-a.id; });
   var list = document.getElementById('tx-list');
   var emptySt = document.getElementById('tx-empty');
@@ -850,7 +860,7 @@ function renderSaisie(){
       else { icon = cat ? cat.icon : '✳️'; name = cat ? cat.name : tx.category; }
       return '<div class="tx-row" data-tx="'+tx.id+'">'+
         '<div class="tx-row-icon" style="background:'+categoryColor(name)+'22;">'+esc(icon)+'</div>'+
-        '<div class="tx-row-body"><div class="tx-row-cat">'+esc(name)+'</div><div class="tx-row-date">'+fmtDateFR(tx.date)+'</div></div>'+
+        '<div class="tx-row-body"><div class="tx-row-cat">'+esc(name)+'</div><div class="tx-row-date">'+fmtDateFR(tx.date)+(tx.account?' · '+esc(tx.account):'')+'</div></div>'+
         '<div class="tx-row-amt '+tx.type+'">'+(tx.type==='revenu'?'+':'−')+eur(tx.amount)+'</div>'+
         '<button class="icon-btn" data-del="'+tx.id+'" title="Supprimer">×</button>'+
       '</div>';
@@ -915,7 +925,8 @@ function wireSaisieTools(){
     var rows = pendingImportRows.filter(function(r){ return r.include; });
     var toAdd = rows.filter(function(r){ return !findDuplicate(r.date, r.type, r.category, Math.abs(r.amount), true); });
     var skipped = rows.length - toAdd.length;
-    Promise.all(toAdd.map(function(r){ return db.add('transactions', {date:r.date, type:r.type, category:r.category, note: r.needsReview ? r.label : undefined, amount:Math.abs(r.amount), needsReview: !!r.needsReview}); }))
+    var importAccount = document.getElementById('import-account').value.trim();
+    Promise.all(toAdd.map(function(r){ return db.add('transactions', {date:r.date, type:r.type, category:r.category, note: r.needsReview ? r.label : undefined, amount:Math.abs(r.amount), needsReview: !!r.needsReview, account: importAccount || undefined}); }))
       .then(function(saved){
         saved.forEach(function(t){ S.transactions.push(t); });
         var msg = saved.length+' transaction'+(saved.length>1?'s':'')+' importée'+(saved.length>1?'s':'')+'.';

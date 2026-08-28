@@ -112,6 +112,10 @@
           <div class="quick-chips" id="quick-chips"></div>
 
           <div class="cat-date-row">
+            <input type="text" id="qa-account" list="qa-account-list" placeholder="Compte (optionnel)…"><datalist id="qa-account-list"></datalist>
+          </div>
+
+          <div class="cat-date-row">
             <input type="text" id="qa-cat" list="qa-cat-list" placeholder="Catégorie / libellé…" required><datalist id="qa-cat-list"></datalist>
             <input type="date" id="qa-date" required>
           </div>
@@ -123,6 +127,9 @@
       <div class="modal-overlay" id="import-box" style="display:none;">
         <div class="modal-card" style="max-width:460px;">
           <h2>Importer un relevé bancaire</h2>
+          <div class="modal-field"><label>Compte (optionnel — s'applique à tout le lot)</label>
+            <input type="text" id="import-account" list="qa-account-list" placeholder="Compte courant, Compte commun…">
+          </div>
           <div class="modal-field"><label>Colle ton relevé (CSV) ou choisis un fichier</label>
             <textarea id="import-textarea" placeholder="01/07/2026;CARREFOUR CB;-45,20&#10;02/07/2026;VIR SALAIRE;1500,00"></textarea>
           </div>
@@ -146,6 +153,9 @@
           <option value="variable">Dépense</option>
           <option value="revenu">Revenu</option>
           <option value="epargne">Épargne</option>
+        </select>
+        <select id="tx-account">
+          <option value="all">Tous les comptes</option>
         </select>
       </div>
 
