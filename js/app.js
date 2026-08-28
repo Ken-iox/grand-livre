@@ -503,6 +503,8 @@ function renderDashboard(){
   if(gotoBtn) gotoBtn.addEventListener('click', function(){ setView('alertes'); });
   var gotoCal = pop.querySelector('[data-goto3]');
   if(gotoCal) gotoCal.addEventListener('click', function(){ setView('calendrier'); });
+  var alertList = pop.querySelector('.alert-list');
+  if(alertList) wireAlertRows(alertList, alerts);
 }
 
 function persistChargePayments(){
@@ -634,21 +636,21 @@ function computeAlerts(mk){
   var d = diagnostics(mk);
   var A = S.automations;
   if(A.weeklyDigest && mk === CURRENT_MONTH && new Date().getDay() === 1){
-    list.push({cls:'good', title:'Résumé de la semaine', desc:'Solde restant '+eur(d.agg.solde)+' · '+pct(d.variablePct)+' du budget variable utilisé.', meta:'Lundi'});
+    list.push({cls:'good', title:'Résumé de la semaine', desc:'Solde restant '+eur(d.agg.solde)+' · '+pct(d.variablePct)+' du budget variable utilisé.', meta:'Lundi', view:'dashboard'});
   }
   if(A.uncatDetect){
     S.transactions.filter(function(t){ return t.needsReview; }).forEach(function(t){
-      list.push({cls:'bad', title:'Non catégorisé', desc:(t.note||t.category||'Transaction')+' · '+fmtDateFR(t.date), meta:eur(t.amount)});
+      list.push({cls:'bad', title:'Non catégorisé', desc:(t.note||t.category||'Transaction')+' · '+fmtDateFR(t.date), meta:eur(t.amount), view:'saisie'});
     });
   }
-  if(d.fixed.cls !== 'good') list.push({cls:d.fixed.cls, title:'Charges fixes '+d.fixed.label.toLowerCase(), desc:pct(d.fixedPct)+' des revenus (seuil max '+S.thresholds.fixedMax+' %).', meta:pct(d.fixedPct)});
-  if(d.variable.cls !== 'good') list.push({cls:d.variable.cls, title:'Dépenses variables '+d.variable.label.toLowerCase(), desc:pct(d.variablePct)+' des revenus (seuil max '+S.thresholds.variableMax+' %).', meta:pct(d.variablePct)});
-  if(d.margin.cls !== 'good') list.push({cls:d.margin.cls, title:'Marge '+d.margin.label.toLowerCase(), desc:'Solde restant sous le seuil confortable de '+eur(S.thresholds.comfortMargin)+'.', meta:eur(d.agg.solde)});
+  if(d.fixed.cls !== 'good') list.push({cls:d.fixed.cls, title:'Charges fixes '+d.fixed.label.toLowerCase(), desc:pct(d.fixedPct)+' des revenus (seuil max '+S.thresholds.fixedMax+' %).', meta:pct(d.fixedPct), view:'dashboard'});
+  if(d.variable.cls !== 'good') list.push({cls:d.variable.cls, title:'Dépenses variables '+d.variable.label.toLowerCase(), desc:pct(d.variablePct)+' des revenus (seuil max '+S.thresholds.variableMax+' %).', meta:pct(d.variablePct), view:'budgets'});
+  if(d.margin.cls !== 'good') list.push({cls:d.margin.cls, title:'Marge '+d.margin.label.toLowerCase(), desc:'Solde restant sous le seuil confortable de '+eur(S.thresholds.comfortMargin)+'.', meta:eur(d.agg.solde), view:'dashboard'});
   if(A.overspendAlert){
     S.categories.forEach(function(c){
       var spent = txForMonth(mk).filter(function(t){ return t.type==='variable' && t.category===c.name; }).reduce(function(a,t){ return a+t.amount; },0);
       var pctVal = c.monthlyBudget > 0 ? (spent/c.monthlyBudget*100) : 0;
-      if(pctVal >= 90) list.push({cls: pctVal>=100?'bad':'warn', title:'Catégorie proche du plafond', desc:c.icon+' '+c.name+' à '+Math.round(pctVal)+' % de son budget mensuel.', meta:Math.round(pctVal)+' %'});
+      if(pctVal >= 90) list.push({cls: pctVal>=100?'bad':'warn', title:'Catégorie proche du plafond', desc:c.icon+' '+c.name+' à '+Math.round(pctVal)+' % de son budget mensuel.', meta:Math.round(pctVal)+' %', view:'budgets', editCatId:c.id});
     });
   }
   if(A.dueReminder){
@@ -659,15 +661,15 @@ function computeAlerts(mk){
         if(paid) return;
         var due = new Date(today.getFullYear(), today.getMonth(), c.dueDay);
         var diffDays = Math.round((due - new Date(today.getFullYear(),today.getMonth(),today.getDate())) / 86400000);
-        if(diffDays >= 0 && diffDays <= 3) list.push({cls:'warn', title:'Échéance dans '+diffDays+' jour'+(diffDays===1?'':'s'), desc:c.icon+' '+c.name+' — le '+String(c.dueDay).padStart(2,'0'), meta:eur(c.amount)});
+        if(diffDays >= 0 && diffDays <= 3) list.push({cls:'warn', title:'Échéance dans '+diffDays+' jour'+(diffDays===1?'':'s'), desc:c.icon+' '+c.name+' — le '+String(c.dueDay).padStart(2,'0'), meta:eur(c.amount), view:'dashboard', markPaidChargeId:c.id});
       });
     }
   }
-  if(d.savings.cls === 'good') list.push({cls:'good', title:'Taux d’épargne au-dessus du seuil', desc:pct(d.savingsPct)+' des revenus.', meta:pct(d.savingsPct)});
+  if(d.savings.cls === 'good') list.push({cls:'good', title:'Taux d’épargne au-dessus du seuil', desc:pct(d.savingsPct)+' des revenus.', meta:pct(d.savingsPct), view:'dashboard'});
   if(A.unusualSpend){
     detectUnusualExpenses(mk).forEach(function(u){
       var cat = categoryByName(u.tx.category);
-      list.push({cls:'warn', title:'Dépense inhabituelle', desc:(cat?cat.icon+' ':'')+u.tx.category+' à '+eur(u.tx.amount)+' — habituellement autour de '+eur(u.avg)+'.', meta:eur(u.tx.amount)});
+      list.push({cls:'warn', title:'Dépense inhabituelle', desc:(cat?cat.icon+' ':'')+u.tx.category+' à '+eur(u.tx.amount)+' — habituellement autour de '+eur(u.avg)+'.', meta:eur(u.tx.amount), view:'saisie'});
     });
   }
   return list;
@@ -687,15 +689,38 @@ function detectUnusualExpenses(mk){
   });
   return results;
 }
-function alertRowHtml(a){
-  return '<div class="alert-item '+a.cls+'"><span class="ic">●</span><div class="alert-body"><div class="alert-title">'+esc(a.title)+'</div><div class="alert-desc">'+esc(a.desc)+'</div></div><div class="alert-meta">'+esc(a.meta)+'</div></div>';
+function alertRowHtml(a, i){
+  return '<div class="alert-item '+a.cls+'" data-alert="'+i+'" style="cursor:pointer;"><span class="ic">●</span><div class="alert-body"><div class="alert-title">'+esc(a.title)+'</div><div class="alert-desc">'+esc(a.desc)+'</div></div>'+
+    (a.markPaidChargeId!=null ? '<button type="button" class="btn-secondary" data-mark-paid="'+a.markPaidChargeId+'" style="font-size:11px; padding:5px 9px;">✓ Payé</button>' : '<div class="alert-meta">'+esc(a.meta)+'</div>')+
+  '</div>';
+}
+function wireAlertRows(container, alerts){
+  container.querySelectorAll('[data-mark-paid]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var id = parseInt(btn.dataset.markPaid,10);
+      S.chargePayments[selectedMonth] = S.chargePayments[selectedMonth] || {};
+      S.chargePayments[selectedMonth][id] = true;
+      persistChargePayments();
+      renderDashboard(); renderAlerts();
+    });
+  });
+  container.querySelectorAll('[data-alert]').forEach(function(row){
+    row.addEventListener('click', function(e){
+      if(e.target.closest('[data-mark-paid]')) return;
+      var a = alerts[parseInt(row.dataset.alert,10)];
+      if(a && a.view) setView(a.view);
+    });
+  });
 }
 function renderAlerts(){
   var alerts = computeAlerts(selectedMonth);
   var badCount = alerts.filter(function(a){ return a.cls==='bad' || a.cls==='warn'; }).length;
   var countEl = document.getElementById('alert-count');
   countEl.textContent = badCount; countEl.classList.toggle('zero', badCount===0);
-  document.getElementById('alert-list-full').innerHTML = alerts.length ? alerts.map(alertRowHtml).join('') : '<div style="font-size:12.5px; color:var(--ink-faint);">Rien à signaler pour '+monthLabel(selectedMonth)+' ✓</div>';
+  var list = document.getElementById('alert-list-full');
+  list.innerHTML = alerts.length ? alerts.map(alertRowHtml).join('') : '<div style="font-size:12.5px; color:var(--ink-faint);">Rien à signaler pour '+monthLabel(selectedMonth)+' ✓</div>';
+  wireAlertRows(list, alerts);
 }
 
 /* ============ SUGGESTIONS — charges récurrentes détectées ============ */
