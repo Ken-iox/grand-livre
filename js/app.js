@@ -947,10 +947,58 @@ function wireSaisieTools(){
   document.getElementById('voice-btn').addEventListener('click', handleVoiceInput);
 }
 
+function normalizeHeaderCell(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
+function findHeaderIndex(headerCols, candidates){
+  for(var i=0;i<candidates.length;i++){
+    var idx = headerCols.indexOf(candidates[i]);
+    if(idx !== -1) return idx;
+  }
+  return -1;
+}
+function isoFromDateCol(dateCol){
+  return /^\d{2}\/\d{2}\/\d{4}$/.test(dateCol)
+    ? dateCol.slice(6,10)+'-'+dateCol.slice(3,5)+'-'+dateCol.slice(0,2)
+    : dateCol;
+}
 function parseCsv(text){
-  var lines = text.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
+  var lines = text.replace(/^﻿/,'').split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
+  if(!lines.length) return [];
   var delim = text.indexOf(';') !== -1 ? ';' : ',';
+  var headerCols = lines[0].split(delim).map(function(c){ return normalizeHeaderCell(c.replace(/^"|"$/g,'')); });
+  var hDate = findHeaderIndex(headerCols, ['date operation','date de comptabilisation','date valeur','date de valeur','date']);
+  var hLabel = findHeaderIndex(headerCols, ['libelle simplifie','libelle operation','libelle','description']);
+  var hDebit = findHeaderIndex(headerCols, ['debit']);
+  var hCredit = findHeaderIndex(headerCols, ['credit']);
+  var hMontant = findHeaderIndex(headerCols, ['montant']);
+  var hCategorie = findHeaderIndex(headerCols, ['categorie']);
+  var hasHeader = hDate !== -1 && (hDebit !== -1 || hCredit !== -1 || hMontant !== -1);
   var rows = [];
+
+  if(hasHeader){
+    // relevé bancaire structuré avec en-tête : colonnes Débit/Crédit déjà signées par la banque
+    lines.slice(1).forEach(function(line){
+      var cols = line.split(delim).map(function(c){ return c.trim().replace(/^"|"$/g,''); });
+      if(cols.length < 2) return;
+      var dateRaw = cols[hDate];
+      if(!/^\d{2}\/\d{2}\/\d{4}$/.test(dateRaw) && !/^\d{4}-\d{2}-\d{2}$/.test(dateRaw)) return;
+      if(hCategorie !== -1 && /exclue/i.test(cols[hCategorie]||'')) return; // virement interne, déjà écarté par la banque elle-même
+      var amountCol = null;
+      var debitRaw = hDebit!==-1 ? cols[hDebit] : '';
+      var creditRaw = hCredit!==-1 ? cols[hCredit] : '';
+      if(debitRaw){ var d = parseFloat(debitRaw.replace(/\s/g,'').replace(',','.')); if(!isNaN(d)) amountCol = d; }
+      if(amountCol === null && creditRaw){ var c = parseFloat(creditRaw.replace(/\s/g,'').replace(',','.')); if(!isNaN(c)) amountCol = c; }
+      if(amountCol === null && hMontant!==-1){ var mo = parseFloat((cols[hMontant]||'').replace(/\s/g,'').replace(',','.')); if(!isNaN(mo)) amountCol = mo; }
+      if(amountCol === null) return;
+      var label = (hLabel!==-1 ? cols[hLabel] : '') || cols.join(' ');
+      var guessed = matchCategoryByKeyword(label);
+      var type = amountCol > 0 ? 'revenu' : 'variable';
+      var needsReview = type === 'variable' && !guessed;
+      rows.push({date:isoFromDateCol(dateRaw), label:label, amount:amountCol, type:type, category: guessed || label, needsReview:needsReview, include:true});
+    });
+    return rows;
+  }
+
+  // format simple sans en-tête : date;libellé;montant (un seul montant, déjà signé)
   lines.forEach(function(line){
     var cols = line.split(delim).map(function(c){ return c.trim().replace(/^"|"$/g,''); });
     if(cols.length < 2) return;
@@ -961,14 +1009,11 @@ function parseCsv(text){
       if(!isNaN(n) && cols[i] !== dateCol){ amountCol = n; break; }
     }
     if(dateCol == null || amountCol == null) return;
-    var iso = /^\d{2}\/\d{2}\/\d{4}$/.test(dateCol)
-      ? dateCol.slice(6,10)+'-'+dateCol.slice(3,5)+'-'+dateCol.slice(0,2)
-      : dateCol;
     var label = cols.find(function(c){ return c !== dateCol && isNaN(parseFloat(c.replace(',','.'))); }) || cols.join(' ');
     var guessed = matchCategoryByKeyword(label);
     var type = amountCol > 0 ? 'revenu' : 'variable';
     var needsReview = type === 'variable' && !guessed;
-    rows.push({date:iso, label:label, amount:amountCol, type:type, category: guessed || label, needsReview:needsReview, include:true});
+    rows.push({date:isoFromDateCol(dateCol), label:label, amount:amountCol, type:type, category: guessed || label, needsReview:needsReview, include:true});
   });
   return rows;
 }
