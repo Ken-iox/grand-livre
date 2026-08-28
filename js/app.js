@@ -813,6 +813,23 @@ function wireSaisie(){
     document.getElementById(id).addEventListener('input', renderSaisie);
     document.getElementById(id).addEventListener('change', renderSaisie);
   });
+  document.getElementById('tx-clear-btn').addEventListener('click', function(){
+    var mk = document.getElementById('tx-month').value;
+    var target = mk === 'all' ? S.transactions.slice() : S.transactions.filter(function(t){ return t.date.indexOf(mk) === 0; });
+    if(!target.length){ showToast('Rien à supprimer pour ce filtre.'); return; }
+    var desc = mk === 'all'
+      ? target.length+' transaction'+(target.length>1?'s':'')+', tous mois confondus. Action irréversible.'
+      : target.length+' transaction'+(target.length>1?'s':'')+' de '+monthLabel(mk)+'. Action irréversible.';
+    confirmModal('Vider ce mois ?', desc, {danger:true, okLabel:'Tout supprimer'}).then(function(ok){
+      if(!ok) return;
+      Promise.all(target.map(function(t){ return db.delete('transactions', t.id); })).then(function(){
+        var ids = target.map(function(t){ return t.id; });
+        S.transactions = S.transactions.filter(function(t){ return ids.indexOf(t.id) === -1; });
+        renderMonthSelects(); renderDashboard(); renderAlerts(); renderSaisie(); renderBudgets(); renderAnnuel(); renderSuggestions();
+        showToast(target.length+' transaction'+(target.length>1?'s':'')+' supprimée'+(target.length>1?'s':'')+'.');
+      });
+    });
+  });
 }
 function renderQuickChips(){
   var since = new Date(); since.setDate(since.getDate()-60);
@@ -1399,6 +1416,18 @@ function wireBudgets(){
           showToast(msg);
           renderBudgets(); renderSaisie();
         });
+    });
+  });
+  document.getElementById('cat-clear-btn').addEventListener('click', function(){
+    if(!S.categories.length){ showToast('Aucune catégorie à supprimer.'); return; }
+    var n = S.categories.length;
+    confirmModal('Supprimer toutes les catégories ?', n+' catégorie'+(n>1?'s':'')+' seront supprimées. Les transactions déjà enregistrées garderont leur libellé mais perdront leur budget associé. Action irréversible.', {danger:true, okLabel:'Tout supprimer'}).then(function(ok){
+      if(!ok) return;
+      Promise.all(S.categories.map(function(c){ return db.delete('categories', c.id); })).then(function(){
+        S.categories = [];
+        renderBudgets(); renderSaisie(); renderDashboard();
+        showToast('Catégories supprimées.');
+      });
     });
   });
 }
