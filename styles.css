@@ -406,6 +406,20 @@ input[type=range]{ width:100%; accent-color:var(--accent); }
 .modal-field input, .modal-field select{ font:inherit; font-size:13.5px; padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--bg); color:var(--ink); width:100%; }
 .modal-field input:focus, .modal-field select:focus{ outline:2px solid var(--accent); outline-offset:0; border-color:var(--accent); }
 .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+
+/* tableau détaillé (revenus/dépenses/épargne/solde) */
+.bd-card{ max-width:400px; }
+.bd-head{ text-align:center; padding:2px 0 18px; }
+.bd-head-label{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); font-weight:600; margin-bottom:4px; }
+.bd-head-total{ font-size:27px; font-weight:600; }
+.bd-section{ margin-bottom:16px; }
+.bd-section:last-of-type{ margin-bottom:0; }
+.bd-section-head{ display:flex; justify-content:space-between; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); font-weight:600; padding-bottom:6px; margin-bottom:2px; border-bottom:1px solid var(--line); }
+.bd-row{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:5px 0; font-size:13px; }
+.bd-row-label{ color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bd-row-sub{ color:var(--ink-faint); font-size:10px; margin-left:7px; font-family:var(--font-mono); }
+.bd-row-amt{ font-weight:500; font-size:13px; white-space:nowrap; color:var(--ink-soft); flex-shrink:0; }
+.bd-row-amt.pos{ color:var(--good); }
 .btn-secondary{ background:var(--surface-2); color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; }
 .btn-secondary:hover{ background:var(--line); }
 .btn-danger{ background:var(--bad-soft); color:var(--bad); border:1px solid transparent; border-radius:7px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; }

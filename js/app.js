@@ -147,56 +147,47 @@ function confirmModal(title, desc, opts){
     overlay.querySelector('[data-m="submit"]').addEventListener('click', function(){ close(true); });
   });
 }
-function breakdownRowHtml(icon, label, sub, amount, sign){
-  return '<div class="tx-row" style="cursor:default;">'+
-    '<div class="tx-row-icon" style="background:'+categoryColor(label)+'22;">'+esc(icon)+'</div>'+
-    '<div class="tx-row-body"><div class="tx-row-cat">'+esc(label)+'</div><div class="tx-row-date">'+esc(sub)+'</div></div>'+
-    '<div class="tx-row-amt '+(sign>0?'revenu':'')+'">'+(sign>0?'+':'−')+eur(amount)+'</div>'+
-  '</div>';
-}
+var BD_KIND_LABEL = {revenu:'Revenus', fixed:'Charges fixes', variable:'Dépenses variables', epargne:'Épargne'};
+var BD_KIND_ORDER = ['revenu','fixed','variable','epargne'];
+function bdEntry(kind, icon, label, sub, amount){ return {kind:kind, icon:icon, label:label, sub:sub, amount:amount}; }
 function openBreakdownModal(type){
   var mk = selectedMonth;
-  var title, rows = [], total = 0;
+  var title, entries = [];
   var revenuTx = txForMonth(mk).filter(function(t){ return t.type==='revenu'; });
   var variableTx = txForMonth(mk).filter(function(t){ return t.type==='variable'; });
   var epargneTx = txForMonth(mk).filter(function(t){ return t.type==='epargne'; });
+  function addRevenus(){ revenuTx.forEach(function(t){ entries.push(bdEntry('revenu','💼', t.category||'Revenu', fmtDateFR(t.date), t.amount)); }); }
+  function addFixed(){ S.fixedCharges.forEach(function(c){ entries.push(bdEntry('fixed', c.icon, c.name, 'jour '+String(c.dueDay).padStart(2,'0'), c.amount)); }); }
+  function addVariable(){ variableTx.forEach(function(t){ var cat = categoryByName(t.category); entries.push(bdEntry('variable', cat?cat.icon:'✳️', t.category||'Dépense', fmtDateFR(t.date), t.amount)); }); }
+  function addEpargne(){ epargneTx.forEach(function(t){ entries.push(bdEntry('epargne','🐷', t.category||'Épargne', fmtDateFR(t.date), t.amount)); }); }
 
-  if(type === 'revenu'){
-    title = 'Revenus — '+monthLabel(mk);
-    revenuTx.forEach(function(t){ rows.push(breakdownRowHtml('💼', t.category||'Revenu', fmtDateFR(t.date), t.amount, 1)); total += t.amount; });
-  } else if(type === 'variable'){
-    title = 'Dépenses — '+monthLabel(mk);
-    S.fixedCharges.forEach(function(c){
-      rows.push(breakdownRowHtml(c.icon, c.name, 'Charge fixe · jour '+String(c.dueDay).padStart(2,'0'), c.amount, -1));
-      total += c.amount;
-    });
-    variableTx.forEach(function(t){
-      var cat = categoryByName(t.category);
-      rows.push(breakdownRowHtml(cat?cat.icon:'✳️', t.category||'Dépense', fmtDateFR(t.date), t.amount, -1));
-      total += t.amount;
-    });
-  } else if(type === 'epargne'){
-    title = 'Épargne — '+monthLabel(mk);
-    epargneTx.forEach(function(t){ rows.push(breakdownRowHtml('🐷', t.category||'Épargne', fmtDateFR(t.date), t.amount, -1)); total += t.amount; });
-  } else {
-    title = 'Solde du mois — '+monthLabel(mk);
-    revenuTx.forEach(function(t){ rows.push(breakdownRowHtml('💼', t.category||'Revenu', fmtDateFR(t.date), t.amount, 1)); total += t.amount; });
-    S.fixedCharges.forEach(function(c){ rows.push(breakdownRowHtml(c.icon, c.name, 'Charge fixe · jour '+String(c.dueDay).padStart(2,'0'), c.amount, -1)); total -= c.amount; });
-    variableTx.forEach(function(t){ var cat = categoryByName(t.category); rows.push(breakdownRowHtml(cat?cat.icon:'✳️', t.category||'Dépense', fmtDateFR(t.date), t.amount, -1)); total -= t.amount; });
-    epargneTx.forEach(function(t){ rows.push(breakdownRowHtml('🐷', t.category||'Épargne', fmtDateFR(t.date), t.amount, -1)); total -= t.amount; });
-  }
+  if(type === 'revenu'){ title = 'Revenus'; addRevenus(); }
+  else if(type === 'variable'){ title = 'Dépenses'; addFixed(); addVariable(); }
+  else if(type === 'epargne'){ title = 'Épargne'; addEpargne(); }
+  else { title = 'Solde du mois'; addRevenus(); addFixed(); addVariable(); addEpargne(); }
+
+  var total = entries.reduce(function(a,e){ return a + e.amount * (e.kind==='revenu'?1:-1); }, 0);
+  var kindsPresent = BD_KIND_ORDER.filter(function(k){ return entries.some(function(e){ return e.kind===k; }); });
+  var sectionsHtml = kindsPresent.map(function(kind){
+    var group = entries.filter(function(e){ return e.kind===kind; });
+    var subtotal = group.reduce(function(a,e){ return a+e.amount; }, 0);
+    var rowsHtml = group.map(function(e){
+      return '<div class="bd-row"><span class="bd-row-label">'+esc(e.icon)+' '+esc(e.label)+'<span class="bd-row-sub">'+esc(e.sub)+'</span></span>'+
+        '<span class="bd-row-amt tnum'+(kind==='revenu'?' pos':'')+'">'+eur(e.amount)+'</span></div>';
+    }).join('');
+    return '<div class="bd-section">'+
+      (kindsPresent.length > 1 ? '<div class="bd-section-head"><span>'+BD_KIND_LABEL[kind]+'</span><span class="tnum">'+eur(subtotal)+'</span></div>' : '')+
+      rowsHtml+
+    '</div>';
+  }).join('');
 
   var root = document.getElementById('modal-root');
   var overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML =
-    '<div class="modal-card" role="dialog" aria-modal="true" style="max-width:420px;">'+
-      '<h2>'+esc(title)+'</h2>'+
-      '<div>'+(rows.length ? rows.join('') : '<div style="font-size:12px;color:var(--ink-faint);padding:8px 0;">Rien à afficher ce mois-ci.</div>')+'</div>'+
-      '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px solid var(--line);">'+
-        '<span style="font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:600;">Total</span>'+
-        '<span class="tnum" style="font-weight:600; font-size:15px;">'+eur(total)+'</span>'+
-      '</div>'+
+    '<div class="modal-card bd-card" role="dialog" aria-modal="true">'+
+      '<div class="bd-head"><div class="bd-head-label">'+esc(title)+' · '+esc(monthLabel(mk))+'</div><div class="bd-head-total tnum">'+eur(total)+'</div></div>'+
+      (entries.length ? sectionsHtml : '<div style="font-size:12px;color:var(--ink-faint);padding:8px 0;text-align:center;">Rien à afficher ce mois-ci.</div>')+
       '<div class="modal-actions">'+
         (type !== 'all' ? '<button type="button" class="btn-secondary" data-m="saisie">Gérer dans Saisie rapide</button>' : '')+
         '<button type="button" class="btn-primary" data-m="close">Fermer</button>'+
