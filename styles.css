@@ -111,6 +111,9 @@ main{ padding:22px 28px 56px; max-width:1080px; }
 .card h3{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); font-weight:600; font-family:var(--font-body); }
 
 .stat{ display:flex; flex-direction:column; gap:2px; position:relative; }
+.stat-clickable{ cursor:pointer; transition:background .12s; }
+.stat-clickable:hover{ background:var(--surface-2); }
+.stat-clickable:active{ background:var(--line); }
 .stat-label{ font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
 .stat-value{ font-size:21px; font-weight:500; }
 .stat-delta{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; width:fit-content; padding:1px 6px; border-radius:99px; }

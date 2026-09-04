@@ -469,10 +469,10 @@ function renderDashboard(){
       heroWarnHtml+
     '</div>'+
     '<div class="grid cols-4">'+
-      statCardHtml('Revenus', d.agg.revenus, revSeries, 'accent') +
-      statCardHtml('Dépenses', d.agg.depenses, depSeries, 'bad') +
-      statCardHtml('Épargne', d.agg.epargne, eparSeries, 'good') +
-      statCardHtml('Solde restant', d.agg.solde, soldeSeries, d.margin.cls === 'good' ? 'good' : (d.margin.cls === 'warn' ? 'warn' : 'bad'), d.margin.label) +
+      statCardHtml('Revenus', d.agg.revenus, revSeries, 'accent', null, 'revenu') +
+      statCardHtml('Dépenses', d.agg.depenses, depSeries, 'bad', null, 'variable') +
+      statCardHtml('Épargne', d.agg.epargne, eparSeries, 'good', null, 'epargne') +
+      statCardHtml('Solde restant', d.agg.solde, soldeSeries, d.margin.cls === 'good' ? 'good' : (d.margin.cls === 'warn' ? 'warn' : 'bad'), d.margin.label, 'all') +
     '</div>'+
     '<div class="section-title">Diagnostic du mois</div>'+
     '<div class="diag-row">'+
@@ -503,6 +503,19 @@ function renderDashboard(){
   if(gotoBtn) gotoBtn.addEventListener('click', function(){ setView('alertes'); });
   var gotoCal = pop.querySelector('[data-goto3]');
   if(gotoCal) gotoCal.addEventListener('click', function(){ setView('calendrier'); });
+  pop.querySelectorAll('[data-goto-tx]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var type = el.dataset.gotoTx;
+      setView('saisie');
+      var monthSel = document.getElementById('tx-month');
+      var typeSel = document.getElementById('tx-type');
+      var searchInp = document.getElementById('tx-search');
+      if(searchInp) searchInp.value = '';
+      if(monthSel) monthSel.value = selectedMonth;
+      if(typeSel) typeSel.value = type;
+      renderSaisie();
+    });
+  });
   var alertList = pop.querySelector('.alert-list');
   if(alertList) wireAlertRows(alertList, alerts);
 }
@@ -519,8 +532,8 @@ function last6Months(endMk){
   return arr;
 }
 
-function statCardHtml(label, value, series, colorVar, badge){
-  return '<div class="card stat">'+
+function statCardHtml(label, value, series, colorVar, badge, filterType){
+  return '<div class="card stat'+(filterType?' stat-clickable':'')+'"'+(filterType?' data-goto-tx="'+filterType+'"':'')+'>'+
     '<div class="stat-label">'+label+'</div>'+
     '<div class="stat-value tnum">'+animatedEur('stat-'+label, value)+'</div>'+
     (badge ? '<span class="stat-delta '+(colorVar==='good'?'good':(colorVar==='warn'?'warn':'bad'))+'" style="position:absolute; top:12px; right:13px;">'+badge+'</span>' : '')+
